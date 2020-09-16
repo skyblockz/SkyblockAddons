@@ -72,7 +72,7 @@ public enum TransformerMethod {
 
     // EntityRenderer
     getMouseOver("getMouseOver", "func_78473_a", "a", "(F)V"),
-    getNightVisionBrightness("getNightVisionBrightness", "func_180438_a", "a", "("+TransformerClass.EntityLivingBase.getName()+"F)F", "(Lnet/minecraft/entity/EntityLivingBase;F)F"),
+    getNightVisionBrightness("getNightVisionBrightness", "func_180438_a", "a", "(Lnet/minecraft/entity/EntityLivingBase;F)F", "("+TransformerClass.EntityLivingBase.getName()+"F)F"),
 
     // GuiNewChat
     printChatMessageWithOptionalDeletion("printChatMessageWithOptionalDeletion", "func_146234_a", "a", "(Lnet/minecraft/util/IChatComponent;I)V", "("+TransformerClass.IChatComponent.getName()+"I)V"),
@@ -114,6 +114,8 @@ public enum TransformerMethod {
 
     // EntityLivingBase
     handleStatusUpdate("handleStatusUpdate", "func_70103_a", "a", "(B)V"),
+    removePotionEffectClient("removePotionEffectClient", "func_70618_n", "l", "(I)V"),
+    addPotionEffect("addPotionEffect", "func_70690_d", "c", "(Lnet/minecraft/potion/PotionEffect;)V", "(" + TransformerClass.PotionEffect.getName() +")V"),
 
     // Constructor
     init("<init>", "<init>", "<init>", "()V"),
@@ -126,6 +128,9 @@ public enum TransformerMethod {
 
     // ModelBase
     render("render", "func_78088_a", "a", "(Lnet/minecraft/entity/Entity;FFFFFF)V", "("+TransformerClass.Entity.getName()+"FFFFFF)V"),
+
+    // WorldClient
+    onEntityRemoved("onEntityRemoved", "func_72847_b", "b", "(Lnet/minecraft/entity/Entity;)V", "("+TransformerClass.Entity.getName()+")V"),
 
     NULL(null,null,null,null,false);
 

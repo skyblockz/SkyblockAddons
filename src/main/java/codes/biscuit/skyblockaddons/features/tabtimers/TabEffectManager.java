@@ -25,7 +25,7 @@ public class TabEffectManager {
     @Getter private static final TabEffectManager instance = new TabEffectManager();
 
     /** Used to match potion effects from the footer. */
-    private static final Pattern EFFECT_PATTERN = Pattern.compile("(?:(?<potion>§r§[a-f0-9][a-zA-Z ]+ (?:I[XV]|V?I{0,3}) )|(?<powerup>§r§[a-f0-9][a-zA-Z ]+ ))§r§f(?<timer>\\d{0,2}:?\\d{1,2}:\\d{2})");
+    private static final Pattern EFFECT_PATTERN = Pattern.compile("(?:(?<potion>§r§[a-f0-9][a-zA-Z ]+ (?:I[XV]|V?I{0,3})§r )|(?<powerup>§r§[a-f0-9][a-zA-Z ]+ ))§r§f(?<timer>\\d{0,2}:?\\d{1,2}:\\d{2})");
 
     /**
      * The following two fields are accessed by
@@ -55,7 +55,9 @@ public class TabEffectManager {
      * @param potionEffect The potion effect text to be added.
      */
     public void putPotionEffect(String potionEffect, String timer) {
-        if(SkyblockAddons.getInstance().getConfigValues().isEnabled(Feature.HIDE_NIGHT_VISION_EFFECT_TIMER) && potionEffect.startsWith("§r§5Night Vision")) return;
+        if (SkyblockAddons.getInstance().getConfigValues().isEnabled(Feature.HIDE_NIGHT_VISION_EFFECT_TIMER) && potionEffect.startsWith("§r§5Night Vision")) {
+            return;
+        }
         putEffect(new TabEffect(potionEffect, timer), potionTimers);
     }
 
