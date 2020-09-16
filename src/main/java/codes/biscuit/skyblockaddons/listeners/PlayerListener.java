@@ -10,9 +10,11 @@ import codes.biscuit.skyblockaddons.features.BaitManager;
 import codes.biscuit.skyblockaddons.features.EndstoneProtectorManager;
 import codes.biscuit.skyblockaddons.features.backpacks.Backpack;
 import codes.biscuit.skyblockaddons.features.backpacks.BackpackManager;
+import codes.biscuit.skyblockaddons.features.dragontracker.DragonTracker;
 import codes.biscuit.skyblockaddons.features.cooldowns.CooldownManager;
 import codes.biscuit.skyblockaddons.features.enchantedItemBlacklist.EnchantedItemPlacementBlocker;
 import codes.biscuit.skyblockaddons.features.powerorbs.PowerOrbManager;
+import codes.biscuit.skyblockaddons.features.slayertracker.SlayerTracker;
 import codes.biscuit.skyblockaddons.features.tabtimers.TabEffectManager;
 import codes.biscuit.skyblockaddons.gui.IslandWarpGui;
 import codes.biscuit.skyblockaddons.misc.scheduler.Scheduler;
@@ -23,6 +25,7 @@ import com.google.common.collect.Sets;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiChest;
@@ -82,6 +85,9 @@ public class PlayerListener {
     private static final Pattern PROFILE_CHAT_PATTERN = Pattern.compile("§aYou are playing on profile: §e([A-Za-z]+).*");
     private static final Pattern SWITCH_PROFILE_CHAT_PATTERN = Pattern.compile("§aYour profile was changed to: §e([A-Za-z]+).*");
     private static final Pattern MINION_CANT_REACH_PATTERN = Pattern.compile("§cI can't reach any (?<mobName>[A-Za-z]*)(?:s)");
+    private static final Pattern DRAGON_KILLED_PATTERN = Pattern.compile(" *[A-Z]* DRAGON DOWN!");
+    private static final Pattern DRAGON_SPAWNED_PATTERN = Pattern.compile("☬ The (?<dragonType>[A-Za-z ]+) Dragon has spawned!");
+    private static final Pattern SLAYER_COMPLETED_PATTERN = Pattern.compile(" {3}» Talk to Maddox to claim your (?<slayerType>[A-Za-z]+) Slayer XP!");
     private static final Pattern DEATH_MESSAGE_PATTERN = Pattern.compile("§r§c ☠ §r(?:§[\\da-fk-or])(?<playerName>\\w+)(?<afterNameFormatting>§r§7)* (?<causeOfDeath>.+)§r§7\\.§r");
     private static final Pattern REVIVE_MESSAGE_PATTERN = Pattern.compile("§r§a ❣ §r(?:§[\\da-fk-or])(?<revivedPlayer>\\w+)§r§a was revived(?: by §r(?:§[\\da-fk-or])(?<reviver>\\w+)§r§a)*!§r");
     private static final Pattern ACCESSORY_BAG_REFORGE_PATTERN = Pattern.compile("You applied the (?<reforge>\\w+) reforge to (?:\\d+) accessories in your Accessory Bag!");
@@ -155,14 +161,10 @@ public class PlayerListener {
             IslandWarpGui.Marker doubleWarpMarker = IslandWarpGui.getDoubleWarpMarker();
             if (doubleWarpMarker != null) {
                 IslandWarpGui.setDoubleWarpMarker(null);
-                Minecraft.getMinecraft().thePlayer.sendChatMessage("/warp "+doubleWarpMarker.getWarpName());
+                Minecraft.getMinecraft().thePlayer.sendChatMessage("/warp " + doubleWarpMarker.getWarpName());
             }
 
             NPCUtils.getNpcLocations().clear();
-        } else {
-            if (main.getUtils().isOnSkyblock() && main.getConfigValues().isEnabled(Feature.HIDE_PLAYERS_NEAR_NPCS) && NPCUtils.isNPC(entity)) {
-                NPCUtils.getNpcLocations().add(entity.getPositionVector());
-            }
         }
     }
 
@@ -208,8 +210,9 @@ public class PlayerListener {
             e.message = new ChatComponentText(restMessage);
         } else {
             String formattedText = e.message.getFormattedText();
-            Matcher deathMessageMatcher = DEATH_MESSAGE_PATTERN.matcher(formattedText);
-            Matcher accessoryBagReforgeMatcher = ACCESSORY_BAG_REFORGE_PATTERN.matcher(unformattedText);
+            String strippedText = TextUtils.stripColor(formattedText);
+
+            Matcher matcher;
 
             if (main.getRenderListener().isPredictMana() && unformattedText.startsWith("Used ") && unformattedText.endsWith("Mana)")) {
                 int manaLost = Integer.parseInt(unformattedText.split(Pattern.quote("! ("))[1].split(Pattern.quote(" Mana)"))[0]);
@@ -217,17 +220,17 @@ public class PlayerListener {
             }
 
             // Fire a SkyblockPlayerDeathEvent if the message says that a player died.
-            if (deathMessageMatcher.matches()) {
+            if ((matcher = DEATH_MESSAGE_PATTERN.matcher(formattedText)).matches()) {
                 EntityPlayer deadPlayer = null;
 
                 /*
                  If the group "afterNameFormatting" matches, it means someone other than the client player died.
                  If it doesn't match, the client player died.
                  */
-                if (deathMessageMatcher.group("afterNameFormatting") != null) {
+                if (matcher.group("afterNameFormatting") != null) {
                     for (EntityPlayer player:
                          Minecraft.getMinecraft().theWorld.playerEntities) {
-                        if (player.getName().contains(deathMessageMatcher.group("playerName"))) {
+                        if (player.getName().contains(matcher.group("playerName"))) {
                             deadPlayer = player;
                             break;
                         }
@@ -236,8 +239,7 @@ public class PlayerListener {
                     deadPlayer = Minecraft.getMinecraft().thePlayer;
                 }
 
-                MinecraftForge.EVENT_BUS.post(new SkyblockPlayerDeathEvent(deadPlayer,
-                        deathMessageMatcher.group("causeOfDeath")));
+                MinecraftForge.EVENT_BUS.post(new SkyblockPlayerDeathEvent(deadPlayer, matcher.group("causeOfDeath")));
             }
 
             if (main.getConfigValues().isEnabled(Feature.SUMMONING_EYE_ALERT) && formattedText.equals("§r§6§lRARE DROP! §r§5Summoning Eye§r")) {
@@ -263,34 +265,50 @@ public class PlayerListener {
                 main.getRenderListener().setTitleFeature(Feature.LEGENDARY_SEA_CREATURE_WARNING);
                 main.getScheduler().schedule(Scheduler.CommandType.RESET_TITLE_FEATURE, main.getConfigValues().getWarningSeconds());
 
-            }  else if (main.getConfigValues().isEnabled(Feature.DISABLE_MAGICAL_SOUP_MESSAGES) && SOUP_RANDOM_MESSAGES.contains(unformattedText)) {
+            } else if (main.getConfigValues().isEnabled(Feature.DISABLE_MAGICAL_SOUP_MESSAGES) && SOUP_RANDOM_MESSAGES.contains(unformattedText)) {
                 e.setCanceled(true);
 
             } else if (main.getConfigValues().isEnabled(Feature.DISABLE_TELEPORT_PAD_MESSAGES) && (formattedText.startsWith("§r§aWarped from ") || formattedText.equals("§r§cThis Teleport Pad does not have a destination set!§r"))) {
                 e.setCanceled(true);
 
+            } else if ((matcher = SLAYER_COMPLETED_PATTERN.matcher(strippedText)).matches()) { // §r   §r§5§l» §r§7Talk to Maddox to claim your Wolf Slayer XP!§r
+                SlayerTracker.getInstance().completedSlayer(matcher.group("slayerType"));
+
+            } else if (strippedText.startsWith("☬ You placed a Summoning Eye!")) { // §r§5☬ §r§dYou placed a Summoning Eye! §r§7(§r§e5§r§7/§r§a8§r§7)§r
+                DragonTracker.getInstance().addEye();
+
+            } else if (strippedText.equals("You recovered a Summoning Eye!")) {
+                DragonTracker.getInstance().removeEye();
+
+            } else if ((matcher = DRAGON_SPAWNED_PATTERN.matcher(strippedText)).matches()) {
+                DragonTracker.getInstance().dragonSpawned(matcher.group("dragonType"));
+
+            } else if (DRAGON_KILLED_PATTERN.matcher(strippedText).matches()) {
+                DragonTracker.getInstance().dragonKilled();
+
             } else if (formattedText.startsWith("§7Sending to server ")) {
                 lastSkyblockServerJoinAttempt = System.currentTimeMillis();
+                DragonTracker.getInstance().reset();
+
             } else if (unformattedText.equals("You laid an egg!")) { // Put the Chicken Head on cooldown for 20 seconds when the player lays an egg.
                 CooldownManager.put(InventoryUtils.CHICKEN_HEAD_DISPLAYNAME, 20000);
 
             } else if (formattedText.startsWith("§r§eYou added a minute of rain!")) {
                 if (this.rainmakerTimeEnd == -1 || this.rainmakerTimeEnd < System.currentTimeMillis()) {
-                    this.rainmakerTimeEnd = System.currentTimeMillis() + (1000*60); // Set the timer to a minute from now.
+                    this.rainmakerTimeEnd = System.currentTimeMillis() + (1000 * 60); // Set the timer to a minute from now.
                 } else {
-                    this.rainmakerTimeEnd += (1000*60); // Extend the timer one minute.
+                    this.rainmakerTimeEnd += (1000 * 60); // Extend the timer one minute.
                 }
             } else if (main.getConfigValues().isEnabled(Feature.SHOW_ENCHANTMENTS_REFORGES) &&
-                    accessoryBagReforgeMatcher.matches()) {
-                GuiChestHook.setLastAccessoryBagReforge(accessoryBagReforgeMatcher.group("reforge"));
+                    (matcher = ACCESSORY_BAG_REFORGE_PATTERN.matcher(unformattedText)).matches()) {
+                GuiChestHook.setLastAccessoryBagReforge(matcher.group("reforge"));
             }
 
             if (main.getConfigValues().isEnabled(Feature.NO_ARROWS_LEFT_ALERT)) {
-                Matcher matcher;
                 if (NO_ARROWS_LEFT_PATTERN.matcher(formattedText).matches()) {
                     main.getUtils().playLoudSound("random.orb", 0.5);
                     main.getRenderListener().setSubtitleFeature(Feature.NO_ARROWS_LEFT_ALERT);
-                    main.getRenderListener().setArrowsLeft(-1); // TODO: check, does this break anything?
+                    main.getRenderListener().setArrowsLeft(-1);
                     main.getScheduler().schedule(Scheduler.CommandType.RESET_SUBTITLE_FEATURE, main.getConfigValues().getWarningSeconds());
 
                 } else if ((matcher = ONLY_HAVE_ARROWS_LEFT_PATTERN.matcher(formattedText)).matches()) {
@@ -347,7 +365,7 @@ public class PlayerListener {
             }
 
 
-            Matcher matcher = ABILITY_CHAT_PATTERN.matcher(formattedText);
+            matcher = ABILITY_CHAT_PATTERN.matcher(formattedText);
             if (matcher.matches()) {
                 CooldownManager.put(Minecraft.getMinecraft().thePlayer.getHeldItem());
             } else {
@@ -458,6 +476,7 @@ public class PlayerListener {
                     if (main.getUtils().isOnSkyblock() && main.getConfigValues().isEnabled(Feature.TAB_EFFECT_TIMERS)) {
                         TabEffectManager.getInstance().updatePotionEffects();
                     }
+
                 } else if (timerTick % 5 == 0) { // Check inventory, location, updates, and skeleton helmet every 1/4 second.
                     EntityPlayerSP player = mc.thePlayer;
 
@@ -472,10 +491,10 @@ public class PlayerListener {
                             main.getInventoryUtils().checkIfWearingSlayerArmor(player);
                         }
 
-                        if (mc.currentScreen == null && main.getConfigValues().isEnabled(Feature.ITEM_PICKUP_LOG)
-                                && main.getPlayerListener().didntRecentlyJoinWorld()) {
+                        if (mc.currentScreen == null && main.getPlayerListener().didntRecentlyJoinWorld()) {
                             main.getInventoryUtils().getInventoryDifference(player.inventory.mainInventory);
                         }
+
                         if (main.getConfigValues().isEnabled(Feature.BAIT_LIST) && BaitManager.getInstance().isHoldingRod()) {
                             BaitManager.getInstance().refreshBaits();
                         }
@@ -490,16 +509,27 @@ public class PlayerListener {
         }
     }
 
-    /**
-     * Checks for minion holograms.
-     * Original contribution by Michael#3549.
-     */
     @SubscribeEvent
     public void onEntityEvent(LivingEvent.LivingUpdateEvent e) {
+        if (!main.getUtils().isOnSkyblock()) {
+            return;
+        }
+
         Entity entity = e.entity;
 
-        if (main.getUtils().isOnSkyblock() && entity instanceof EntityArmorStand && entity.hasCustomName()) {
+        if (entity instanceof EntityOtherPlayerMP && main.getConfigValues().isEnabled(Feature.HIDE_PLAYERS_NEAR_NPCS) && entity.ticksExisted < 5) {
+            float health = ((EntityOtherPlayerMP) entity).getHealth();
 
+            if (NPCUtils.getNpcLocations().containsKey(entity.getUniqueID())) {
+                if (health != 20.0F) {
+                    NPCUtils.getNpcLocations().remove(entity.getUniqueID());
+                }
+            } else if (NPCUtils.isNPC(entity)) {
+                NPCUtils.getNpcLocations().put(entity.getUniqueID(), entity.getPositionVector());
+            }
+        }
+
+        if (entity instanceof EntityArmorStand && entity.hasCustomName()) {
             PowerOrbManager.getInstance().detectPowerOrb(entity);
 
             if (main.getUtils().getLocation() == Location.ISLAND) {
@@ -513,7 +543,7 @@ public class PlayerListener {
                         main.getRenderListener().setSubtitleFeature(Feature.MINION_FULL_WARNING);
                         main.getScheduler().schedule(Scheduler.CommandType.RESET_SUBTITLE_FEATURE, main.getConfigValues().getWarningSeconds());
                     }
-                } else if (main.getConfigValues().isEnabled(Feature.MINION_STOP_WARNING)) { // TODO Make sure this works...
+                } else if (main.getConfigValues().isEnabled(Feature.MINION_STOP_WARNING)) {
                     Matcher matcher = MINION_CANT_REACH_PATTERN.matcher(entity.getCustomNameTag());
                     if (matcher.matches()) {
                         long now = System.currentTimeMillis();
@@ -581,6 +611,8 @@ public class PlayerListener {
                 }
             }
         }
+
+        NPCUtils.getNpcLocations().remove(e.entity.getUniqueID());
     }
 
     public boolean isZealot(Entity enderman) {
@@ -873,7 +905,7 @@ public class PlayerListener {
                     if (baseStatBoost != -1) {
 
                         ColorCode colorCode = main.getConfigValues().getRestrictedColor(Feature.SHOW_BASE_STAT_BOOST_PERCENTAGE);
-                        if (main.getConfigValues().isEnabled(Feature.COLOR_BY_RARITY)) {
+                        if (main.getConfigValues().isEnabled(Feature.BASE_STAT_BOOST_COLOR_BY_RARITY)) {
 
                             int rarityIndex = baseStatBoost/10;
                             if (rarityIndex < 0) rarityIndex = 0;
@@ -934,7 +966,7 @@ public class PlayerListener {
 
             if (e.gui instanceof GuiChest) {
                 Minecraft mc = Minecraft.getMinecraft();
-                IInventory chestInventory = ((GuiChest)e.gui).lowerChestInventory;
+                IInventory chestInventory = ((GuiChest) e.gui).lowerChestInventory;
                 if (chestInventory.hasCustomName()) {
                     if (chestInventory.getDisplayName().getUnformattedText().contains("Backpack")) {
                         if (ThreadLocalRandom.current().nextInt(0, 2) == 0) {
@@ -1035,7 +1067,7 @@ public class PlayerListener {
             main.getInventoryUtils().resetPreviousInventory();
         }
     }
-      
+
     public boolean aboutToJoinSkyblockServer() {
         return System.currentTimeMillis() - lastSkyblockServerJoinAttempt < 6000;
     }

@@ -6,7 +6,6 @@ import codes.biscuit.skyblockaddons.events.SkyblockJoinedEvent;
 import codes.biscuit.skyblockaddons.events.SkyblockLeftEvent;
 import codes.biscuit.skyblockaddons.features.backpacks.Backpack;
 import codes.biscuit.skyblockaddons.features.dungeonmap.MapMarker;
-import codes.biscuit.skyblockaddons.core.DungeonPlayer;
 import codes.biscuit.skyblockaddons.features.itemdrops.ItemDropChecker;
 import codes.biscuit.skyblockaddons.gui.SkyblockAddonsGui;
 import codes.biscuit.skyblockaddons.misc.ChromaManager;
@@ -15,6 +14,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.gson.*;
+import com.ibm.icu.text.ArabicShaping;
+import com.ibm.icu.text.ArabicShapingException;
+import com.ibm.icu.text.Bidi;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.Minecraft;
@@ -27,21 +29,19 @@ import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.scoreboard.Score;
 import net.minecraft.scoreboard.ScoreObjective;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.IChatComponent;
-import net.minecraft.util.MathHelper;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Vec4b;
+import net.minecraft.util.*;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
@@ -52,6 +52,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.text.WordUtils;
 import org.apache.logging.log4j.Logger;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import javax.imageio.ImageIO;
@@ -60,7 +61,7 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.nio.FloatBuffer;
 import java.util.List;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -70,7 +71,7 @@ import java.util.stream.Collectors;
 @Getter @Setter
 public class Utils {
 
-    public static Gson GSON = new Gson();
+    public static final Gson GSON = new Gson();
 
     /** Added to the beginning of messages. */
     public static final String MESSAGE_PREFIX =
@@ -845,8 +846,8 @@ public class Utils {
         int color = ChromaManager.getChromaColor((float) x, (float) y);
         float f3 = (float) (color >> 24 & 255) / 255.0F;
         float f = (float) (color >> 16 & 255) / 255.0F;
-        float f1 = (float) (color >> 8 & 255) / 255.0F;
-        float f2 = (float) (color & 255) / 255.0F;
+        float f1 = (float) (color & 255) / 255.0F;
+        float f2 = (float) (color >> 8 & 255) / 255.0F;
         worldRenderer.pos(x, y, 0.0D).color(f, f1, f2, f3).endVertex();
     }
 
@@ -882,7 +883,9 @@ public class Utils {
 
     public void loadLanguageFile(boolean pullOnline) {
         loadLanguageFile(main.getConfigValues().getLanguage());
-        if (pullOnline) main.getUtils().tryPullingLanguageOnline(main.getConfigValues().getLanguage()); // Try getting an updated version online after loading the local one.
+        if (pullOnline) {
+            main.getUtils().tryPullingLanguageOnline(main.getConfigValues().getLanguage()); // Try getting an updated version online after loading the local one.
+        }
     }
 
     public void loadLanguageFile(Language language) {
@@ -931,6 +934,38 @@ public class Utils {
                 System.out.println("SkyblockAddons: There was an error loading the language file online");
             }
         }).start();
+    }
+
+    public static String getTranslatedString(String parentPath, String value)
+    {
+        String text;
+        try {
+            SkyblockAddons main = SkyblockAddons.getInstance();
+            List<String> path = new LinkedList<String>(Arrays.asList((parentPath).split(Pattern.quote("."))));
+            JsonObject jsonObject = main.getConfigValues().getLanguageConfig();
+            for (String part : path) {
+                if (!part.equals("")) {
+                    jsonObject = jsonObject.getAsJsonObject(part);
+                }
+            }
+            text = jsonObject.get(value).getAsString();
+            if (text != null && (main.getConfigValues().getLanguage() == Language.HEBREW || main.getConfigValues().getLanguage() == Language.ARABIC) && !Minecraft.getMinecraft().fontRendererObj.getBidiFlag()) {
+                text = bidiReorder(text);
+            }
+        } catch (NullPointerException ex) {
+            text = value; // In case of fire...
+        }
+        return text ;
+    }
+
+    private static String bidiReorder(String text) {
+        try {
+            Bidi bidi = new Bidi((new ArabicShaping(ArabicShaping.LETTERS_SHAPE)).shape(text), Bidi.DIRECTION_DEFAULT_RIGHT_TO_LEFT);
+            bidi.setReorderingMode(Bidi.REORDER_DEFAULT);
+            return bidi.writeReordered(Bidi.DO_MIRRORING);
+        } catch (ArabicShapingException var3) {
+            return text;
+        }
     }
 
     /**
@@ -1366,20 +1401,89 @@ public class Utils {
         tessellator.draw();
     }
 
-    public String encodeSkinTextureURL(String textureURL) {
-        JsonObject skin = new JsonObject();
-        skin.addProperty("url", textureURL);
-
-        JsonObject textures = new JsonObject();
-        textures.add("SKIN", skin);
-
-        JsonObject root = new JsonObject();
-        root.add("textures", textures);
-
-        return Base64.getEncoder().encodeToString(GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
-    }
-
     public static WorldClient getDummyWorld() {
         return DUMMY_WORLD;
+    }
+
+    public static Gson getGson() {
+        return GSON;
+    }
+
+    public float[] getCurrentGLTransformations() {
+        FloatBuffer buf = BufferUtils.createFloatBuffer(16);
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, buf);
+        buf.rewind();
+        org.lwjgl.util.vector.Matrix4f mat = new org.lwjgl.util.vector.Matrix4f();
+        mat.load(buf);
+
+        float x = mat.m30;
+        float y = mat.m31;
+        float z = mat.m32;
+
+        float scale = (float) Math.sqrt(mat.m00 * mat.m00 + mat.m01 * mat.m01 + mat.m02 * mat.m02);
+
+        return new float[] {x, y, z, scale};
+    }
+
+    public ItemStack createItemStack(Item item, boolean enchanted) {
+        return createItemStack(item, 0, null, null, enchanted);
+    }
+
+    public ItemStack createItemStack(Item item, String name, String skyblockID, boolean enchanted) {
+        return createItemStack(item, 0, name, skyblockID, enchanted);
+    }
+
+    public ItemStack createItemStack(Item item, int meta, String name, String skyblockID, boolean enchanted) {
+        ItemStack stack = new ItemStack(item, 1, meta);
+
+        if (name != null) {
+            stack.setStackDisplayName(name);
+        }
+
+        if (enchanted) {
+            stack.addEnchantment(Enchantment.protection, 0);
+        }
+
+        if (skyblockID != null) {
+            setItemStackSkyblockID(stack, skyblockID);
+        }
+
+        return stack;
+    }
+
+    public ItemStack createSkullItemStack(String name, String skyblockID, String skullID, String textureURL) {
+        ItemStack stack = new ItemStack(Items.skull, 1, 3);
+
+        NBTTagCompound texture = new NBTTagCompound();
+        texture.setString("Value", TextUtils.encodeSkinTextureURL(textureURL));
+
+        NBTTagList textures = new NBTTagList();
+        textures.appendTag(texture);
+
+        NBTTagCompound properties = new NBTTagCompound();
+        properties.setTag("textures", textures);
+
+        NBTTagCompound skullOwner = new NBTTagCompound();
+        skullOwner.setTag("Properties", properties);
+
+        skullOwner.setString("Id", skullID);
+
+        stack.setTagInfo("SkullOwner", skullOwner);
+
+        if (name != null) {
+            stack.setStackDisplayName(name);
+        }
+
+        if (skyblockID != null) {
+            setItemStackSkyblockID(stack, skyblockID);
+        }
+
+        return stack;
+    }
+
+    public void setItemStackSkyblockID(ItemStack itemStack, String skyblockID) {
+        NBTTagCompound extraAttributes = new NBTTagCompound();
+        extraAttributes.setString("id", skyblockID);
+        itemStack.setTagInfo("ExtraAttributes", extraAttributes);
     }
 }

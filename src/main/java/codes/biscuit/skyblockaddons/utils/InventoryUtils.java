@@ -5,6 +5,8 @@ import codes.biscuit.skyblockaddons.core.Feature;
 import codes.biscuit.skyblockaddons.core.InventoryType;
 import codes.biscuit.skyblockaddons.features.ItemDiff;
 import codes.biscuit.skyblockaddons.features.SlayerArmorProgress;
+import codes.biscuit.skyblockaddons.features.dragontracker.DragonTracker;
+import codes.biscuit.skyblockaddons.features.slayertracker.SlayerTracker;
 import codes.biscuit.skyblockaddons.misc.scheduler.Scheduler;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
@@ -17,6 +19,7 @@ import net.minecraft.client.gui.inventory.GuiChest;
 import net.minecraft.inventory.*;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -87,8 +90,8 @@ public class InventoryUtils {
      */
     public void getInventoryDifference(ItemStack[] currentInventory) {
         List<ItemStack> newInventory = copyInventory(currentInventory);
-        Map<String, Integer> previousInventoryMap = new HashMap<>();
-        Map<String, Integer> newInventoryMap = new HashMap<>();
+        Map<String, Pair<Integer, NBTTagCompound>> previousInventoryMap = new HashMap<>();
+        Map<String, Pair<Integer, NBTTagCompound>> newInventoryMap = new HashMap<>();
 
         if (previousInventory != null) {
 
@@ -101,8 +104,17 @@ public class InventoryUtils {
                 ItemStack newItem = newInventory.get(i);
 
                 if(previousItem != null) {
-                    int amount = previousInventoryMap.getOrDefault(previousItem.getDisplayName(), 0) + previousItem.stackSize;
-                    previousInventoryMap.put(previousItem.getDisplayName(), amount);
+                    int amount;
+                    if (previousInventoryMap.containsKey(previousItem.getDisplayName())) {
+                        amount = previousInventoryMap.get(previousItem.getDisplayName()).getKey() + previousItem.stackSize;
+                    } else {
+                        amount = previousItem.stackSize;
+                    }
+                    NBTTagCompound extraAttributes = ItemUtils.getExtraAttributes(previousItem);
+                    if (extraAttributes != null) {
+                        extraAttributes = (NBTTagCompound) extraAttributes.copy();
+                    }
+                    previousInventoryMap.put(previousItem.getDisplayName(), new Pair<>(amount, extraAttributes));
                 }
 
                 if(newItem != null) {
@@ -110,8 +122,17 @@ public class InventoryUtils {
                         String newName = newItem.getDisplayName().substring(0, newItem.getDisplayName().lastIndexOf(" "));
                         newItem.setStackDisplayName(newName); // This is a workaround for merchants, it adds x64 or whatever to the end of the name.
                     }
-                    int amount = newInventoryMap.getOrDefault(newItem.getDisplayName(), 0) + newItem.stackSize;
-                    newInventoryMap.put(newItem.getDisplayName(), amount);
+                    int amount;
+                    if (newInventoryMap.containsKey(newItem.getDisplayName())) {
+                        amount = newInventoryMap.get(newItem.getDisplayName()).getKey() + newItem.stackSize;
+                    }  else {
+                        amount = newItem.stackSize;
+                    }
+                    NBTTagCompound extraAttributes = ItemUtils.getExtraAttributes(newItem);
+                    if (extraAttributes != null) {
+                        extraAttributes = (NBTTagCompound) extraAttributes.copy();
+                    }
+                    newInventoryMap.put(newItem.getDisplayName(), new Pair<>(amount, extraAttributes));
                 }
             }
 
@@ -120,30 +141,45 @@ public class InventoryUtils {
             keySet.addAll(newInventoryMap.keySet());
 
             keySet.forEach(key -> {
-                int previousAmount = previousInventoryMap.getOrDefault(key, 0);
-                int newAmount = newInventoryMap.getOrDefault(key, 0);
+                int previousAmount = 0;
+                if (previousInventoryMap.containsKey(key)) {
+                    previousAmount = previousInventoryMap.get(key).getKey();
+                }
+
+                int newAmount = 0;
+                if (newInventoryMap.containsKey(key)) {
+                    newAmount = newInventoryMap.get(key).getKey();
+                }
+
                 int diff = newAmount - previousAmount;
-                if (diff != 0) {
-                    inventoryDifference.add(new ItemDiff(key, diff));
+                if (diff != 0) { // Get the NBT tag from whichever map the name exists in
+                    inventoryDifference.add(new ItemDiff(key, diff, newInventoryMap.getOrDefault(key, previousInventoryMap.get(key)).getValue()));
                 }
             });
 
+            DragonTracker.getInstance().checkInventoryDifferenceForDrops(inventoryDifference);
+            SlayerTracker.getInstance().checkInventoryDifferenceForDrops(inventoryDifference);
+
             // Add changes to already logged changes of the same item, so it will increase/decrease the amount
             // instead of displaying the same item twice
-            for (ItemDiff diff : inventoryDifference) {
-                Collection<ItemDiff> itemDiffs = itemPickupLog.get(diff.getDisplayName());
-                if (itemDiffs.size() <= 0) {
-                    itemPickupLog.put(diff.getDisplayName(), diff);
-                } else {
-                    boolean added = false;
-                    for (ItemDiff loopDiff : itemDiffs) {
-                        if ((diff.getAmount() < 0 && loopDiff.getAmount() < 0) ||
-                                (diff.getAmount() > 0 && loopDiff.getAmount() > 0)) {
-                            loopDiff.add(diff.getAmount());
-                            added = true;
+            if (main.getConfigValues().isEnabled(Feature.ITEM_PICKUP_LOG)) {
+                for (ItemDiff diff : inventoryDifference) {
+                    Collection<ItemDiff> itemDiffs = itemPickupLog.get(diff.getDisplayName());
+                    if (itemDiffs.size() <= 0) {
+                        itemPickupLog.put(diff.getDisplayName(), diff);
+
+                    } else {
+                        boolean added = false;
+                        for (ItemDiff loopDiff : itemDiffs) {
+                            if ((diff.getAmount() < 0 && loopDiff.getAmount() < 0) || (diff.getAmount() > 0 && loopDiff.getAmount() > 0)) {
+                                loopDiff.add(diff.getAmount());
+                                added = true;
+                            }
+                        }
+                        if (!added) {
+                            itemPickupLog.put(diff.getDisplayName(), diff);
                         }
                     }
-                    if (!added) itemPickupLog.put(diff.getDisplayName(), diff);
                 }
             }
 

@@ -145,6 +145,16 @@ public enum Message {
     SETTING_DUNGEONS_COLLECTED_ESSENCES_DISPLAY(MessageObject.SETTING, "dungeonsCollectedEssencesDisplay"),
     SETTING_BONZO_STAFF_SOUNDS(MessageObject.SETTING, "stopBonzoStaffSounds"),
     SETTING_SHOW_RARITY_UPGRADED(MessageObject.SETTING, "showRarityUpgraded"),
+    SETTING_REVENANT_SLAYER_TRACKER(MessageObject.SETTING, "revenantSlayerTracker"),
+    SETTING_TARANTULA_SLAYER_TRACKER(MessageObject.SETTING, "tarantulaSlayerTracker"),
+    SETTING_SVEN_SLAYER_TRACKER(MessageObject.SETTING, "svenSlayerTracker"),
+    SETTING_TEXT_MODE(MessageObject.SETTING, "textMode"),
+    SETTING_DRAGONS_NEST_ONLY(MessageObject.SETTING, "dragonsNestOnly"),
+    SETTING_DRAGON_STATS_TRACKER(MessageObject.SETTING, "dragonStatsTracker"),
+    SETTING_EXPANDED(MessageObject.SETTING, "expanded"),
+    SETTING_HIDE_WHEN_NOT_IN_CRYPTS(MessageObject.SETTING, "hideWhenNotInCrypts"),
+    SETTING_HIDE_WHEN_NOT_IN_SPIDERS_DEN(MessageObject.SETTING, "hideWhenNotInSpidersDen"),
+    SETTING_HIDE_WHEN_NOT_IN_CASTLE(MessageObject.SETTING, "hideWhenNotInCastle"),
     SETTING_DUNGEON_DEATH_COUNTER(MessageObject.SETTING, "dungeonDeathCounter"),
 
     BACKPACK_STYLE_REGULAR(MessageObject.BACKPACK_STYLE, "regular"),
@@ -268,6 +278,7 @@ public enum Message {
     COMMAND_USAGE_SBA_BRAND_BRAND_OUTPUT(MessageObject.COMMAND_USAGE, "sba.brand.brandOutput"),
     COMMAND_USAGE_SBA_BRAND_NOT_FOUND(MessageObject.COMMAND_USAGE, "sba.brand.notFound"),
     COMMAND_USAGE_SBA_COPY_ENTITY(MessageObject.COMMAND_USAGE, "sba.copyEntity"),
+    COMMAND_USAGE_SBA_SLAYER(MessageObject.COMMAND_USAGE, "sba.slayer"),
     COMMAND_USAGE_SBA_COPY_SIDEBAR(MessageObject.COMMAND_USAGE, "sba.copySidebar"),
     COMMAND_USAGE_SBA_COPY_TAB_LIST(MessageObject.COMMAND_USAGE, "sba.copyTabList"),
     COMMAND_USAGE_SBA_DEV(MessageObject.COMMAND_USAGE, "sba.dev"),
@@ -298,6 +309,7 @@ public enum Message {
     SUBCOMMAND_HELP_SET_ZEALOT_COUNTER_EYES(MessageObject.COMMAND_USAGE, "sba.help.set.zealotCounter.eyes"),
     SUBCOMMAND_HELP_SET_ZEALOT_COUNTER_TOTAL_ZEALOTS(MessageObject.COMMAND_USAGE, "sba.help.set.zealotCounter.totalZealots"),
     SUBCOMMAND_HELP_SET_ZEALOT_COUNTER_ZEALOTS(MessageObject.COMMAND_USAGE, "sba.help.set.zealotCounter.zealots"),
+    SUBCOMMAND_HELP_SLAYER(MessageObject.COMMAND_USAGE, "sba.help.slayer"),
     SUBCOMMAND_HELP_SUBCOMMAND_NOT_FOUND(MessageObject.COMMAND_USAGE, "sba.help.subCommandNotFound"),
 
     KEY_DEVELOPER_COPY_NBT(MessageObject.KEYBINDINGS, "developerCopyNBT")
@@ -324,42 +336,42 @@ public enum Message {
             }
             text = jsonObject.get(getMemberName()).getAsString();
             if (text != null) {
-                if (this == SETTING_BACKPACK_STYLE) {
+                if (this == Message.SETTING_BACKPACK_STYLE) {
                     text = text.replace("%style%", main.getConfigValues().getBackpackStyle().getMessage());
-                } else if(this == SETTING_POWER_ORB_DISPLAY_STYLE) {
+                } else if(this == Message.SETTING_POWER_ORB_DISPLAY_STYLE) {
                     text = text.replace("%style%", main.getConfigValues().getPowerOrbDisplayStyle().getMessage());
-                } else if (this == SETTING_GUI_SCALE) {
+                } else if (this == Message.SETTING_GUI_SCALE) {
                     text = text.replace("%scale%", variables[0]);
                 } else if (this == MESSAGE_NEW_UPDATE || this == UPDATE_MESSAGE_MAJOR || this == UPDATE_MESSAGE_PATCH) {
                     text = text.replace("%version%", variables[0]);
-                } else if (this == SETTING_TEXT_STYLE) {
+                } else if (this == Message.SETTING_TEXT_STYLE) {
                     text = text.replace("%style%", main.getConfigValues().getTextStyle().getMessage());
-                } else if (this == MESSAGE_MINION_CANNOT_REACH || this == MESSAGE_TYPE_ENCHANTMENTS
-                        || this == MESSAGE_ENCHANTS_TO_MATCH || this == MESSAGE_ENCHANTS_TO_EXCLUDE) {
+                } else if (this == Message.MESSAGE_MINION_CANNOT_REACH || this == Message.MESSAGE_TYPE_ENCHANTMENTS
+                        || this == Message.MESSAGE_ENCHANTS_TO_MATCH || this == Message.MESSAGE_ENCHANTS_TO_EXCLUDE) {
                     text = text.replace("%type%", variables[0]);
-                } else if (this == MESSAGE_CLICK_MORE_TIMES) {
+                } else if (this == Message.MESSAGE_CLICK_MORE_TIMES) {
                     text = text.replace("%times%", variables[0]);
-                } else if (this == UPDATE_MESSAGE_DOWNLOAD) {
+                } else if (this == Message.UPDATE_MESSAGE_DOWNLOAD) {
                     text = text.replace("%downloaded%", variables[0]).replace("%total%", variables[1]);
-                } else if (this == UPDATE_MESSAGE_DOWNLOAD_FINISHED) {
+                } else if (this == Message.UPDATE_MESSAGE_DOWNLOAD_FINISHED) {
                     text = text.replace("%file%", variables[0]);
-                } else if (this == MESSAGE_ANVIL_USES) {
+                } else if (this == Message.MESSAGE_ANVIL_USES) {
                     text = text.replace("%uses%", main.getConfigValues().getRestrictedColor(Feature.SHOW_ITEM_ANVIL_USES)+variables[0]+ ColorCode.GRAY.toString());
-                } else if (this == MESSAGE_ONLY_FEW_ARROWS_LEFT) {
+                } else if (this == Message.MESSAGE_ONLY_FEW_ARROWS_LEFT) {
                     text = text.replace("%arrows%", variables[0]);
-                } else if (this == MESSAGE_STAGE) {
+                } else if (this == Message.MESSAGE_STAGE) {
                     text = text.replace("%stage%", variables[0]);
-                } else if (this == COMMAND_USAGE_SBA_BRAND_BRAND_OUTPUT) {
+                } else if (this == Message.COMMAND_USAGE_SBA_BRAND_BRAND_OUTPUT) {
                     text = text.replace("%brand%", variables[0]);
-                } else if (this == COMMAND_USAGE_SBA_DEV_ENABLED) {
+                } else if (this == Message.COMMAND_USAGE_SBA_DEV_ENABLED) {
                     text = text.replace("%keyName%", variables[0]);
-                } else if (this == COMMAND_USAGE_SBA_SET_ZEALOT_COUNTER_EYES
-                        || this == COMMAND_USAGE_SBA_SET_ZEALOT_COUNTER_TOTAL_ZEALOTS
-                        || this == COMMAND_USAGE_SBA_SET_ZEALOT_COUNTER_ZEALOTS) {
+                } else if (this == Message.COMMAND_USAGE_SBA_SET_ZEALOT_COUNTER_EYES
+                        || this == Message.COMMAND_USAGE_SBA_SET_ZEALOT_COUNTER_TOTAL_ZEALOTS
+                        || this == Message.COMMAND_USAGE_SBA_SET_ZEALOT_COUNTER_ZEALOTS) {
                     text = text.replace("%number%", variables[0]);
                 } else if (this == Message.COMMAND_USAGE_SBA_SET_ZEALOT_COUNTER_WRONG_USAGE) {
                     text = text.replace("%options%", variables[0]);
-                } else if (this == COMMAND_USAGE_WRONG_USAGE_SUBCOMMAND_NOT_FOUND) {
+                } else if (this == Message.COMMAND_USAGE_WRONG_USAGE_SUBCOMMAND_NOT_FOUND) {
                     text = text.replace("%sub-command%", variables[0]);
                 } else if (this == SUBCOMMAND_HELP_COPY_ENTITY) {
                     text = text.replace("%radius%", variables[0]);
