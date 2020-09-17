@@ -117,6 +117,7 @@ public class SkyblockAddons {
 
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent e) {
+        updater.processUpdateCheckResult();
         DataUtils.readLocalAndFetchOnline();
         configValues.loadValues();
         persistentValues.loadValues();
@@ -202,7 +203,7 @@ public class SkyblockAddons {
     static {
         //noinspection ConstantConditions
         if (VERSION.contains("@")) { // Debug environment...
-            VERSION = "1.5.2";
+            VERSION = "1.6.0";
         }
     }
 }
