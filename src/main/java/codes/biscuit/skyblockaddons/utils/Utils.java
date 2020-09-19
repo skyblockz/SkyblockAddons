@@ -89,8 +89,7 @@ public class Utils {
             "telekinesis"
     ));
 
-    private static final Pattern SERVER_REGEX = Pattern.compile("([0-9]{2}/[0-9]{2}/[0-9]{2}) (mini[0-9]{1,3}[A-Za-z])");
-    private static final Pattern TABLIST_SERVER_REGEX = Pattern.compile("[0-9]{2}/[0-9]{2}/[0-9]{2}\\s\\s(mini[0-9]{1,3}[A-Za-z])");
+    private static final Pattern SERVER_REGEX = Pattern.compile("(?<serverType>[Mm])(?<serverCode>[0-9]+[A-Z])$");
     private static final Pattern PURSE_REGEX = Pattern.compile("(?:Purse|Piggy): (?<coins>[0-9.]*)(?: .*)?");
     private static final Pattern SLAYER_TYPE_REGEX = Pattern.compile("(?<type>Tarantula Broodfather|Revenant Horror|Sven Packmaster) (?<level>[IV]+)");
     private static final Pattern SLAYER_PROGRESS_REGEX = Pattern.compile("(?<progress>[0-9.k]*)/(?<total>[0-9.k]*) (?:Kills|Combat XP)$");
@@ -304,34 +303,39 @@ public class Utils {
                         }
                     }
 
-                    if (strippedUnformatted.contains("mini")) {
-                        matcher = SERVER_REGEX.matcher(strippedUnformatted);
-                        if (matcher.matches()) {
-                            serverID = matcher.group(2);
+                    if ((matcher = SERVER_REGEX.matcher(strippedUnformatted)).find()) {
+                        String serverType = matcher.group("serverType");
+                        if (serverType.equals("m")) {
+                            serverID = "mini";
+                        } else if (serverType.equals("M")) {
+                            serverID = "mega";
                         }
+                        serverID += matcher.group("serverCode");
                     }
 
                     if (strippedUnformatted.endsWith("Combat XP") || strippedUnformatted.endsWith("Kills")) {
                         parseSlayerProgress(strippedUnformatted);
                     }
 
-                    for (Location loopLocation : Location.values()) {
-                        if (strippedUnformatted.endsWith(loopLocation.getScoreboardName())) {
-                            if (loopLocation == Location.BLAZING_FORTRESS && location != Location.BLAZING_FORTRESS) {
-                                sendInventiveTalentPingRequest(EnumUtils.MagmaEvent.PING); // going into blazing fortress
-                                fetchMagmaBossEstimate();
-                            }
+                    if (!foundLocation) {
+                        for (Location loopLocation : Location.values()) {
+                            if (strippedUnformatted.endsWith(loopLocation.getScoreboardName())) {
+                                if (loopLocation == Location.BLAZING_FORTRESS && location != Location.BLAZING_FORTRESS) {
+                                    sendInventiveTalentPingRequest(EnumUtils.MagmaEvent.PING); // going into blazing fortress
+                                    fetchMagmaBossEstimate();
+                                }
 
-                            if (location != loopLocation) {
-                                location = loopLocation;
-                            }
+                                if (location != loopLocation) {
+                                    location = loopLocation;
+                                }
 
-                            foundLocation = true;
-                            break;
+                                foundLocation = true;
+                                break;
+                            }
                         }
                     }
 
-                    if (location == Location.JERRYS_WORKSHOP || location == Location.JERRY_POND) {
+                    if (!foundJerryWave && (location == Location.JERRYS_WORKSHOP || location == Location.JERRY_POND)) {
                         if (strippedUnformatted.startsWith("Wave")) {
                             foundJerryWave = true;
 
@@ -347,13 +351,13 @@ public class Utils {
                         }
                     }
 
-                    if (strippedUnformatted.contains("alpha.hypixel.net")) {
+                    if (!foundAlphaIP && strippedUnformatted.contains("alpha.hypixel.net")) {
                         foundAlphaIP = true;
                         alpha = true;
                         profileName = "Alpha";
                     }
 
-                    if (strippedUnformatted.contains("Dungeon Cleared: ")) {
+                    if (!foundInDungeon && strippedUnformatted.contains("Dungeon Cleared: ")) {
                         foundInDungeon = true;
                         inDungeon = true;
 
@@ -433,29 +437,6 @@ public class Utils {
             // If we don't find a scoreboard for 10s, then we know they actually left the server.
             if (foundScoreboard || System.currentTimeMillis() - lastFoundScoreboard > 10000) {
                 MinecraftForge.EVENT_BUS.post(new SkyblockLeftEvent());
-            }
-        }
-    }
-
-    public void parseTabList() {
-        IChatComponent tabHeaderChatComponent = Minecraft.getMinecraft().ingameGUI.getTabList().header;
-
-        // Convert tab header to a String
-        StringBuilder tabHeaderString = new StringBuilder();
-        if (tabHeaderChatComponent != null) {
-            for (IChatComponent line : tabHeaderChatComponent.getSiblings()) {
-                tabHeaderString.append(line.getUnformattedText());
-            }
-        }
-
-        // Match the TabHeaderString for ServerId
-        Matcher m = TABLIST_SERVER_REGEX.matcher(tabHeaderString.toString());
-        while (m.find()) {
-            String id = m.group(1);
-
-            // Fix: Dungeon game server is not included in the scoreboard sidebar
-            if (!SkyblockAddons.getInstance().getUtils().getServerID().equals(id)) {
-                SkyblockAddons.getInstance().getUtils().setServerID(id);
             }
         }
     }

@@ -100,7 +100,8 @@ public class PlayerListener {
             "You can now fly for 200 minutes.", "Your flight has been extended for 200 extra minutes."));
 
     private static final Set<String> LEGENDARY_SEA_CREATURE_MESSAGES = new HashSet<>(Arrays.asList("The Water Hydra has come to test your strength.",
-            "The Sea Emperor arises from the depths...", "What is this creature!?"));
+            "The Sea Emperor arises from the depths...", "What is this creature!?",
+            "Hide no longer, a Great White Shark has tracked your scent and thirsts for your blood!"));
 
     private static final Set<String> BONZO_STAFF_SOUNDS = new HashSet<>(Arrays.asList("fireworks.blast", "fireworks.blast_far",
             "fireworks.twinkle", "fireworks.twinkle_far", "mob.ghast.moan"));
@@ -465,8 +466,6 @@ public class PlayerListener {
                     main.getUtils().playLoudSound("random.successful_hit", 0.8);
                 }
                 if (timerTick == 20) { // Add natural mana every second (increase is based on your max mana).
-                    main.getUtils().parseTabList();
-
                     if (main.getRenderListener().isPredictMana()) {
                         changeMana(getAttribute(Attribute.MAX_MANA) / 50);
                         if (getAttribute(Attribute.MANA) > getAttribute(Attribute.MAX_MANA))
