@@ -8,7 +8,6 @@ import codes.biscuit.skyblockaddons.features.backpacks.BackpackColor;
 import codes.biscuit.skyblockaddons.features.craftingpatterns.CraftingPattern;
 import codes.biscuit.skyblockaddons.utils.ColorCode;
 import codes.biscuit.skyblockaddons.utils.EnumUtils;
-import codes.biscuit.skyblockaddons.utils.objects.FloatPairString;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -24,99 +23,19 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
 import javax.lang.model.type.NullType;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.regex.Pattern;
 
 public class GuiContainerHook {
 
-    private final static ResourceLocation LOCK = new ResourceLocation("skyblockaddons", "lock.png");
-    private final static ResourceLocation CHEST_GUI_TEXTURE = new ResourceLocation("textures/gui/container/generic_54.png");
-    private final static int OVERLAY_RED = ColorCode.RED.getColor(127).getRGB();
-    private final static int OVERLAY_GREEN = ColorCode.GREEN.getColor(127).getRGB();
-
-    private static FloatPairString reforgeToRender = null;
-    private static Set<FloatPairString> enchantsToRender = new HashSet<>();
+    private static final ResourceLocation LOCK = new ResourceLocation("skyblockaddons", "lock.png");
+    private static final ResourceLocation CHEST_GUI_TEXTURE = new ResourceLocation("textures/gui/container/generic_54.png");
+    private static final int OVERLAY_RED = ColorCode.RED.getColor(127).getRGB();
+    private static final int OVERLAY_GREEN = ColorCode.GREEN.getColor(127).getRGB();
 
     /**
      * This controls whether or not the backpack preview is frozen- allowing you
      * to hover over a backpack's contents in full detail!
      */
     @Getter private static boolean freezeBackpack;
-
-    public static void showEnchantments(Slot slotIn, int x, int y, ItemStack item) {
-        SkyblockAddons main = SkyblockAddons.getInstance();
-        if (main.getConfigValues().isEnabled(Feature.SHOW_ENCHANTMENTS_REFORGES)) {
-            Minecraft mc = Minecraft.getMinecraft();
-            if (item != null && item.hasDisplayName()) {
-                if (item.getDisplayName().startsWith(ColorCode.GREEN + "Enchant Item")) {
-                    List<String> toolip = item.getTooltip(mc.thePlayer, false);
-                    if (toolip.size() > 2) {
-                        String enchantLine = toolip.get(2);
-                        String[] lines = enchantLine.split(Pattern.quote("* "));
-                        if (lines.length >= 2) {
-                            String toMatch = lines[1];
-                            String enchant;
-                            if (!main.getUtils().getEnchantmentMatches().isEmpty() &&
-                                    main.getUtils().enchantReforgeMatches(toMatch)) {
-                                enchant = ColorCode.RED + toMatch;
-                            } else {
-                                enchant = ColorCode.YELLOW + toMatch;
-                            }
-                            float yOff;
-                            if (slotIn.slotNumber == 29 || slotIn.slotNumber == 33) {
-                                yOff = 26;
-                            } else {
-                                yOff = 36;
-                            }
-                            float scaleMultiplier = 1 / 0.75F;
-                            float halfStringWidth = mc.fontRendererObj.getStringWidth(enchant) / 2F;
-                            x += 8; // to center it
-                            enchantsToRender.add(new FloatPairString(x * scaleMultiplier - halfStringWidth, y * scaleMultiplier + yOff, enchant));
-                        }
-                    }
-                } else if ("Reforge Item".equals(slotIn.inventory.getDisplayName().getUnformattedText()) && slotIn.slotNumber == 13) {
-                    String reforge = main.getUtils().getReforgeFromItem(item);
-                    if (reforge != null) {
-                        if (!main.getUtils().getEnchantmentMatches().isEmpty() &&
-                                main.getUtils().enchantReforgeMatches(reforge)) {
-                            reforge = ColorCode.RED + reforge;
-                        } else {
-                            reforge = ColorCode.YELLOW + reforge;
-                        }
-                        x -= 28;
-                        y += 22;
-                        float halfStringWidth = mc.fontRendererObj.getStringWidth(reforge) / 2F;
-                        reforgeToRender = new FloatPairString(x - halfStringWidth, y, reforge);
-                    }
-                }
-            }
-            if (slotIn.slotNumber == 53) {
-                GlStateManager.pushMatrix();
-
-                GlStateManager.disableLighting();
-                GlStateManager.disableDepth();
-                GlStateManager.disableBlend();
-                if (reforgeToRender != null) {
-                    mc.fontRendererObj.drawString(reforgeToRender.getEnchant(), reforgeToRender.getX(), reforgeToRender.getY(), ColorCode.WHITE.getRGB(), true);
-                    reforgeToRender = null;
-                }
-                GlStateManager.scale(0.75, 0.75, 1);
-                Iterator<FloatPairString> enchantPairIterator = enchantsToRender.iterator();
-                while (enchantPairIterator.hasNext()) {
-                    FloatPairString enchant = enchantPairIterator.next();
-                    mc.fontRendererObj.drawString(enchant.getEnchant(), enchant.getX(), enchant.getY(), ColorCode.WHITE.getRGB(), true);
-                    enchantPairIterator.remove();
-                }
-                GlStateManager.enableLighting();
-                GlStateManager.enableDepth();
-
-                GlStateManager.popMatrix();
-            }
-        }
-    }
 
     public static void keyTyped(int keyCode) {
         SkyblockAddons main = SkyblockAddons.getInstance();
@@ -181,7 +100,7 @@ public class GuiContainerHook {
                     }
                 }
                 if (toRenderOverlay != null) {
-                    guiContainer.drawHoveringText(toRenderOverlay.getTooltip(null, mc.gameSettings.advancedItemTooltips), mouseX, mouseY);
+                    guiContainer.drawHoveringText(toRenderOverlay.getTooltip(mc.thePlayer, mc.gameSettings.advancedItemTooltips), mouseX, mouseY);
                 }
             } else {
                 GlStateManager.disableLighting();

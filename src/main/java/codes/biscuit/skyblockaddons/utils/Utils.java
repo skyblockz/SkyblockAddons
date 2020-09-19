@@ -292,23 +292,25 @@ public class Utils {
                         parseSlayerProgress(strippedLine);
                     }
 
-                    for (Location loopLocation : Location.values()) {
-                        if (strippedLine.endsWith(loopLocation.getScoreboardName())) {
-                            if (loopLocation == Location.BLAZING_FORTRESS && location != Location.BLAZING_FORTRESS) {
-                                sendInventiveTalentPingRequest(EnumUtils.MagmaEvent.PING); // going into blazing fortress
-                                fetchMagmaBossEstimate();
-                            }
+                    if (!foundLocation) {
+                        for (Location loopLocation : Location.values()) {
+                            if (strippedLine.endsWith(loopLocation.getScoreboardName())) {
+                                if (loopLocation == Location.BLAZING_FORTRESS && location != Location.BLAZING_FORTRESS) {
+                                    sendInventiveTalentPingRequest(EnumUtils.MagmaEvent.PING); // going into blazing fortress
+                                    fetchMagmaBossEstimate();
+                                }
 
-                            if (location != loopLocation) {
-                                location = loopLocation;
-                            }
+                                if (location != loopLocation) {
+                                    location = loopLocation;
+                                }
 
-                            foundLocation = true;
-                            break;
+                                foundLocation = true;
+                                break;
+                            }
                         }
                     }
 
-                    if (location == Location.JERRYS_WORKSHOP || location == Location.JERRY_POND) {
+                    if (!foundJerryWave && (location == Location.JERRYS_WORKSHOP || location == Location.JERRY_POND)) {
                         if (strippedLine.startsWith("Wave")) {
                             foundJerryWave = true;
 
@@ -324,13 +326,13 @@ public class Utils {
                         }
                     }
 
-                    if (strippedLine.contains("alpha.hypixel.net")) {
+                    if (!foundAlphaIP && strippedLine.contains("alpha.hypixel.net")) {
                         foundAlphaIP = true;
                         alpha = true;
                         profileName = "Alpha";
                     }
 
-                    if (strippedLine.contains("Dungeon Cleared: ")) {
+                    if (!foundInDungeon && strippedLine.contains("Dungeon Cleared: ")) {
                         foundInDungeon = true;
                         inDungeon = true;
                     }
@@ -536,10 +538,10 @@ public class Utils {
         }).start();
     }
 
-    public boolean isMaterialForRecipe(ItemStack item) {
-        final List<String> tooltip = item.getTooltip(null, false);
-        for (String s : tooltip) {
-            if ("§5§o§eRight-click to view recipes!".equals(s)) {
+    public boolean isMaterialForRecipe(ItemStack itemStack) {
+        List<String> lore = ItemUtils.getItemLore(itemStack);
+        for (String loreLine : lore) {
+            if ("Right-click to view recipes!".equals(TextUtils.stripColor(loreLine))) {
                 return true;
             }
         }

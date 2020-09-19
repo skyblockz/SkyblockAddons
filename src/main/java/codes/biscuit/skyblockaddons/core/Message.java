@@ -133,6 +133,8 @@ public enum Message {
     BACKPACK_STYLE_REGULAR(MessageObject.BACKPACK_STYLE, "regular"),
     BACKPACK_STYLE_COMPACT(MessageObject.BACKPACK_STYLE, "compact"),
 
+    MESSAGE_ENCHANTS(MessageObject.MESSAGES, "enchants"),
+    MESSAGE_REFORGES(MessageObject.MESSAGES, "reforges"),
     MESSAGE_DROP_CONFIRMATION(MessageObject.MESSAGES, "dropConfirmation"),
     MESSAGE_MAGMA_BOSS_WARNING(MessageObject.MESSAGES, "magmaBossWarning"),
     MESSAGE_FULL_INVENTORY(MessageObject.MESSAGES, "fullInventory"),
@@ -186,6 +188,12 @@ public enum Message {
     MESSAGE_BOSS_APPROACH_ALERT(MessageObject.MESSAGES, "bossApproaching"),
     MESSAGE_ENABLE_ALL(MessageObject.MESSAGES, "enableAll"),
     MESSAGE_DISABLE_ALL(MessageObject.MESSAGES, "disableAll"),
+    MESSAGE_ENCHANTMENT_INCLUSION_EXAMPLE(MessageObject.MESSAGES, "enchantmentInclusionExample"),
+    MESSAGE_ENCHANTMENT_EXCLUSION_EXAMPLE(MessageObject.MESSAGES, "enchantmentExclusionExample"),
+    MESSAGE_REFORGE_INCLUSION_EXAMPLE(MessageObject.MESSAGES, "reforgeInclusionExample"),
+    MESSAGE_REFORGE_EXCLUSION_EXAMPLE(MessageObject.MESSAGES, "reforgeExclusionExample"),
+    MESSAGE_ONE_EFFECT_ACTIVE(MessageObject.MESSAGES, "effectActive"),
+    MESSAGE_EFFECTS_ACTIVE(MessageObject.MESSAGES, "effectsActive"),
 
     @Deprecated ANCHOR_POINT_TOP_LEFT(MessageObject.ANCHOR_POINT, "topLeft"),
     @Deprecated ANCHOR_POINT_TOP_RIGHT(MessageObject.ANCHOR_POINT, "topRight"),
@@ -206,10 +214,6 @@ public enum Message {
     @Deprecated TAB_FIXES(MessageObject.TAB, "fixes"),
     @Deprecated TAB_GUI_FEATURES(MessageObject.TAB, "guiFeatures"),
     TAB_GENERAL_SETTINGS(MessageObject.TAB, "generalSettings"),
-
-    INVENTORY_TYPE_ENCHANTS(MessageObject.INVENTORY_TYPE, "enchants"),
-    INVENTORY_TYPE_REFORGES(MessageObject.INVENTORY_TYPE, "reforges"),
-    INVENTORY_TYPE_CRAFTING(MessageObject.INVENTORY_TYPE, "crafting"),
 
     POWER_ORB_DISPLAY_STYLE_DETAILED(MessageObject.POWER_ORB_STYLE, "detailed"),
     POWER_ORB_DISPLAY_STYLE_COMPACT(MessageObject.POWER_ORB_STYLE, "compact"),
@@ -285,6 +289,8 @@ public enum Message {
                     text = text.replace("%arrows%", variables[0]);
                 } else if (this == Message.MESSAGE_STAGE) {
                     text = text.replace("%stage%", variables[0]);
+                } else if (this == Message.MESSAGE_EFFECTS_ACTIVE) {
+                    text = text.replace("%number%", variables[0]);
                 }
             }
             if (text != null && (main.getConfigValues().getLanguage() == Language.HEBREW || main.getConfigValues().getLanguage() == Language.ARABIC) && !Minecraft.getMinecraft().fontRendererObj.getBidiFlag()) {
@@ -313,7 +319,6 @@ public enum Message {
         MESSAGES("messages"),
         BACKPACK_STYLE("settings.backpackStyles"),
         POWER_ORB_STYLE("settings.powerOrbStyle"),
-        INVENTORY_TYPE("messages.inventoryTypes"),
         TEXT_STYLE("settings.textStyles"),
         TAB("settings.tab"),
         UPDATE_MESSAGES("messages.update"),

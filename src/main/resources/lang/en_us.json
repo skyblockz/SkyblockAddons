@@ -132,6 +132,8 @@
     "turnAllFeaturesChroma": "Turn All Features Chroma"
   },
   "messages": {
+    "enchants": "Enchants",
+    "reforges": "Reforges",
     "dropConfirmation": "Drop this item again to confirm!",
     "magmaBossWarning": "Magma Cube Boss!",
     "fullInventory": "Full Inventory!",
@@ -142,11 +144,6 @@
     "separateMultiple": "Separate Multiple With Commas.",
     "enchantsToMatch": "%type% To Match:",
     "enchantsToExclude": "%type% To Exclude:",
-    "inventoryTypes": {
-      "enchants": "Enchants",
-      "reforges": "Reforges",
-      "crafting": "Crafting"
-    },
     "wantToViewPatchNotes": "Need support or want to read the full changelog?",
     "downloadLink": "VIDEO/UPDATE LINK",
     "directDownload": "DIRECT DOWNLOAD LINK",
@@ -191,7 +188,14 @@
     "cancelledPark": "A feature has stopped you from breaking this block here.",
     "bossApproaching": "You are close to spawning a boss!",
     "enableAll": "Enable All",
-    "disableAll": "Disable All"
+    "disableAll": "Disable All",
+    "enchantmentInclusionExample": "e.g. \"prot, feather\"",
+    "enchantmentExclusionExample": "e.g. \"proj, blast\"",
+    "reforgeInclusionExample": "e.g. \"godly, strong\"",
+    "reforgeExclusionExample": "e.g. \"odd, clean\"",
+    "actionsLeft": "%number% Left",
+    "effectActive": "1 Effect Active",
+    "effectsActive": "%number% Effects Active"
   },
   "discordStatus": {
     "titleNone": "None",

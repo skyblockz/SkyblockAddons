@@ -2,6 +2,7 @@ package codes.biscuit.skyblockaddons.utils;
 
 import codes.biscuit.skyblockaddons.SkyblockAddons;
 import codes.biscuit.skyblockaddons.core.Feature;
+import codes.biscuit.skyblockaddons.core.InventoryType;
 import codes.biscuit.skyblockaddons.features.ItemDiff;
 import codes.biscuit.skyblockaddons.features.SlayerArmorProgress;
 import codes.biscuit.skyblockaddons.misc.scheduler.Scheduler;
@@ -11,13 +12,19 @@ import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.inventory.GuiChest;
+import net.minecraft.init.Blocks;
 import net.minecraft.inventory.*;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+//TODO Fix for Hypixel localization
 
 /**
  * Utility methods related to player inventories
@@ -36,7 +43,7 @@ public class InventoryUtils {
     public static final String TREECAPITATOR_DISPLAYNAME = "§5Treecapitator";
     public static final String CHICKEN_HEAD_DISPLAYNAME = "§fChicken Head";
 
-    private static final Pattern REVENANT_UPGRADE_PATTERN = Pattern.compile("§5§o§7Next Upgrade: §a\\+([0-9]+❈) §8\\(§a([0-9,]+)§7/§c([0-9,]+)§8\\)");
+    private static final Pattern REVENANT_UPGRADE_PATTERN = Pattern.compile("Next Upgrade: \\+([0-9]+❈) \\(([0-9,]+)/([0-9,]+)\\)");
 
     private List<ItemStack> previousInventory;
     private Multimap<String, ItemDiff> itemPickupLog = ArrayListMultimap.create();
@@ -50,6 +57,8 @@ public class InventoryUtils {
     @Getter private boolean usingToxicArrowPoison;
 
     @Getter private SlayerArmorProgress[] slayerArmorProgresses = new SlayerArmorProgress[4];
+
+    @Getter private InventoryType inventoryType;
 
     private SkyblockAddons main = SkyblockAddons.getInstance();
 
@@ -259,18 +268,19 @@ public class InventoryUtils {
     public void checkIfWearingSlayerArmor(EntityPlayerSP p) {
         if (main.getConfigValues().isEnabled(Feature.SLAYER_INDICATOR)) {
             for (int i = 3; i >= 0; i--) {
-                ItemStack item = p.inventory.armorInventory[i];
-                String itemID = item != null ? ItemUtils.getSkyBlockItemID(item) : null;
+                ItemStack itemStack = p.inventory.armorInventory[i];
+                String itemID = itemStack != null ? ItemUtils.getSkyBlockItemID(itemStack) : null;
 
                 if (itemID != null && (itemID.startsWith("REVENANT") || itemID.startsWith("TARANTULA"))) {
                     String percent = null;
                     String defence = null;
-                    List<String> tooltip = item.getTooltip(null, false);
-                    for (String line : tooltip) {
-                        Matcher matcher = REVENANT_UPGRADE_PATTERN.matcher(line);
+                    List<String> lore = ItemUtils.getItemLore(itemStack);
+                    for (String loreLine : lore) {
+                        Matcher matcher = REVENANT_UPGRADE_PATTERN.matcher(TextUtils.stripColor(loreLine));
                         if (matcher.matches()) { // Example: line§5§o§7Next Upgrade: §a+240❈ §8(§a14,418§7/§c15,000§8)
                             try {
-                                float percentage = Float.parseFloat(matcher.group(2).replace(",", "")) / Integer.parseInt(matcher.group(3).replace(",", "")) * 100;
+                                float percentage = Float.parseFloat(matcher.group(2).replace(",", "")) /
+                                        Integer.parseInt(matcher.group(3).replace(",", "")) * 100;
                                 BigDecimal bigDecimal = new BigDecimal(percentage).setScale(0, BigDecimal.ROUND_HALF_UP);
                                 percent = bigDecimal.toString();
                                 defence = ColorCode.GREEN + matcher.group(1);
@@ -282,9 +292,9 @@ public class InventoryUtils {
                     if (percent != null && defence != null) {
                         SlayerArmorProgress currentProgress = slayerArmorProgresses[i];
 
-                        if (currentProgress == null || item != currentProgress.getItemStack()) {
+                        if (currentProgress == null || itemStack != currentProgress.getItemStack()) {
                             // The item has changed or didn't exist. Create new object.
-                            slayerArmorProgresses[i] = new SlayerArmorProgress(item, percent, defence);
+                            slayerArmorProgresses[i] = new SlayerArmorProgress(itemStack, percent, defence);
                         } else {
                             // The item has remained the same. Just update the stats.
                             currentProgress.setPercent(percent);
@@ -303,5 +313,65 @@ public class InventoryUtils {
      */
     public Collection<ItemDiff> getItemPickupLog() {
         return itemPickupLog.values();
+    }
+
+    /**
+     * Detects and stores, and returns the current Skyblock inventory type. The inventory type is the kind of menu the
+     * player has open, like a crafting table or an enchanting table for example.
+     *
+     * @return the detected inventory type, or {@code null} if an unrecognized inventory is detected or there's no inventory open
+     */
+    public InventoryType updateInventoryType() {
+        GuiScreen currentScreen = Minecraft.getMinecraft().currentScreen;
+
+        if (!(currentScreen instanceof GuiChest)) {
+            return inventoryType = null;
+        }
+
+        IInventory inventory = ((GuiChest) currentScreen).lowerChestInventory;
+
+
+        for (InventoryType inventoryType : InventoryType.values()) {
+            if (inventoryType.getInventoryName().equals(inventory.getDisplayName().getUnformattedText())) {
+                if (inventoryType == InventoryType.BASIC_REFORGING || inventoryType == InventoryType.BASIC_ACCESSORY_BAG_REFORGING) {
+                    return this.inventoryType = getReforgeInventoryType(inventory);
+
+                } else {
+                    return this.inventoryType = inventoryType;
+                }
+            }
+        }
+
+        return this.inventoryType = null;
+    }
+
+    // Gets the reforge inventory type from a given reforge inventory
+    private InventoryType getReforgeInventoryType(IInventory inventory) {
+        if (!inventory.getDisplayName().getUnformattedText().equals(InventoryType.BASIC_REFORGING.getInventoryName()) &&
+                !inventory.getDisplayName().getUnformattedText().equals(InventoryType.BASIC_ACCESSORY_BAG_REFORGING.getInventoryName())) {
+            throw new IllegalArgumentException("The given inventory is not a reforge inventory!");
+        }
+
+        // This records whether the inventory is for reforging a single item or the accessory bag
+        InventoryType baseType = inventory.getDisplayName().getUnformattedText().equals(InventoryType.BASIC_REFORGING.getInventoryName()) ?
+                InventoryType.BASIC_REFORGING : InventoryType.BASIC_ACCESSORY_BAG_REFORGING;
+
+        // This is the barrier item that's present in the advanced reforging menu. This slot is empty in the basic reforging menu.
+        ItemStack barrier = inventory.getStackInSlot(13);
+        // This is the stained glass pane to the right of the barrier.
+        ItemStack glassPane = inventory.getStackInSlot(14);
+
+        /*
+        If the barrier is there, it's the advanced reforging menu. If it's not there (since the player placed an item in
+        the menu), check if the glass pane next to the slot is named "Reforge Stone." That indicates it's the advanced
+        reforging menu. Otherwise, it's the basic menu. Finally, check if it's the single item or accessory bag menu.
+         */
+        if ((barrier != null && barrier.getItem() == Item.getItemFromBlock(Blocks.barrier)) ||
+                (glassPane != null && glassPane.hasDisplayName() && TextUtils.stripColor(glassPane.getDisplayName()).equals("Reforge Stone"))) {
+            return baseType == InventoryType.BASIC_REFORGING ? InventoryType.ADVANCED_REFORGING : InventoryType.ADVANCED_ACCESSORY_BAG_REFORGING;
+
+        } else {
+            return baseType == InventoryType.BASIC_REFORGING ? InventoryType.BASIC_REFORGING : InventoryType.BASIC_ACCESSORY_BAG_REFORGING;
+        }
     }
 }
