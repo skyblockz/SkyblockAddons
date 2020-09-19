@@ -15,6 +15,8 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.util.Constants;
 import org.apache.commons.lang3.text.WordUtils;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -72,7 +74,7 @@ public class ItemUtils {
      * @param item the Skyblock item to check
      * @return the Skyblock Item ID of this item or {@code null} if this isn't a valid Skyblock item
      */
-    public static String getSkyBlockItemID(final ItemStack item) {
+    public static String getSkyBlockItemID(ItemStack item) {
         if (item == null) {
             throw new NullPointerException("Item cannot be null.");
         } else if (!item.hasTagCompound()) {
@@ -178,13 +180,13 @@ public class ItemUtils {
      * Checks if the given item is a material meant to be used in a crafting recipe. Dragon fragments are an example
      * since they are used to make dragon armor.
      *
-     * @param item the item to check
+     * @param itemStack the item to check
      * @return {@code true} if this item is a material, {@code false} otherwise
      */
-    public static boolean isMaterialForRecipe(ItemStack item) {
-        final List<String> tooltip = item.getTooltip(null, false);
-        for (String s : tooltip) {
-            if ("§5§o§eRight-click to view recipes!".equals(s)) {
+    public static boolean isMaterialForRecipe(ItemStack itemStack) {
+        List<String> lore = ItemUtils.getItemLore(itemStack);
+        for (String loreLine : lore) {
+            if ("Right-click to view recipes!".equals(TextUtils.stripColor(loreLine))) {
                 return true;
             }
         }
@@ -356,44 +358,6 @@ public class ItemUtils {
     }
 
     /**
-     * Returns the winning bid of a Midas Sword from a given Skyblock Extra Attributes NBT Compound
-     * @param extraAttributes the NBT to check
-     * @return the winning bid or {@code -1} if it isn't a Midas Sword
-     */
-    public static int getMidasBid(NBTTagCompound extraAttributes) {
-        if (extraAttributes != null) {
-            String itemId = extraAttributes.getString("id");
-
-            if (!itemId.equals("MIDAS_SWORD")) {
-                return -1;
-            }
-
-            return extraAttributes.getInteger("winning_bid");
-        }
-
-        return -1;
-    }
-
-    /**
-     * Returns the number of anvil uses from a given Skyblock Extra Attributes NBT Compound
-     * WARNING: Cannot differentiate between an item that can or cannot have anvil uses
-     * @param extraAttributes the NBT to check
-     * @return the number of anvil uses or {@code -1} if it isn't a valid Skyblock NBT
-     */
-    public static int getAnvilUses(NBTTagCompound extraAttributes) {
-        if (extraAttributes != null) {
-
-            if (!extraAttributes.hasKey("anvil_uses")) {
-                return 0;
-            }
-
-            return extraAttributes.getInteger("anvil_uses");
-        }
-
-        return -1;
-    }
-
-    /**
      * Returns the number of Hot Potato Books from a given Skyblock Extra Attributes NBT Compound
      * MAX 15 because of Fuming Potato Books
      * @param extraAttributes the NBT to check
@@ -410,5 +374,32 @@ public class ItemUtils {
         }
 
         return -1;
+    }
+
+    /**
+     * Returns a string list containing the nbt lore of an ItemStack, or
+     * an empty list if this item doesn't have a lore. The returned lore
+     * list is unmodifiable since it has been converted from an NBTTagList.
+     *
+     * @param itemStack the ItemStack to get the lore from
+     * @return the lore of an ItemStack as a string list
+     */
+    public static List<String> getItemLore(ItemStack itemStack) {
+        if (itemStack.hasTagCompound() && itemStack.getTagCompound().hasKey("display", 10)) { // 10 -> Compound
+            NBTTagCompound display = itemStack.getTagCompound().getCompoundTag("display");
+
+            if (display.hasKey("Lore", 9)) { // 9 -> List
+                NBTTagList lore = display.getTagList("Lore", 8); // 8 -> String
+
+                List<String> loreAsList = new ArrayList<>();
+                for (int lineNumber = 0; lineNumber < lore.tagCount(); lineNumber++) {
+                    loreAsList.add(lore.getStringTagAt(lineNumber));
+                }
+
+                return Collections.unmodifiableList(loreAsList);
+            }
+        }
+
+        return Collections.emptyList();
     }
 }
