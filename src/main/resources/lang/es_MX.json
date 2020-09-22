@@ -157,7 +157,8 @@
     "hideWhenNotInCrypts": "Hide When Not in the Crypts/Doing Revenant Quest",
     "hideWhenNotInSpidersDen": "Hide When Not in the Spiders Den/Doing Tarantula Quest",
     "hideWhenNotInCastle": "Hide When Not in the Castle/Doing Sven Quest",
-    "dungeonDeathCounter": "Dungeon Death Counter"
+    "dungeonDeathCounter": "Dungeon Death Counter",
+    "showPersonalCompactorPreview": "Show Personal Compactor Preview"
   },
   "messages": {
     "enchants": "Enchants",
@@ -222,6 +223,7 @@
     "reforgeInclusionExample": "ej. \"godly, strong\"",
     "reforgeExclusionExample": "ej. \"odd, clean\"",
     "actionsLeft": "%number% Left",
+    "effectActive": "1 Effect Active",
     "effectsActive": "%number% Effects Active"
   },
   "discordStatus": {
