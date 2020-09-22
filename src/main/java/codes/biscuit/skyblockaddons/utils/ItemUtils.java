@@ -1,17 +1,18 @@
 package codes.biscuit.skyblockaddons.utils;
 
+import codes.biscuit.skyblockaddons.SkyblockAddons;
 import codes.biscuit.skyblockaddons.core.ItemRarity;
 import codes.biscuit.skyblockaddons.utils.skyblockdata.PetInfo;
 import codes.biscuit.skyblockaddons.utils.skyblockdata.Rune;
 import net.minecraft.block.Block;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemPickaxe;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.util.Constants;
 import org.apache.commons.lang3.text.WordUtils;
 
@@ -271,84 +272,83 @@ public class ItemUtils {
                 return null;
             }
 
-            return Utils.getGson().fromJson(extraAttributes.getString("petInfo"), PetInfo.class);
+            return SkyblockAddons.getGson().fromJson(extraAttributes.getString("petInfo"), PetInfo.class);
         }
 
         return null;
     }
 
     /**
-     * Returns a {@link ItemStack[]} of Items from the ExtraAttributes Skyblock data
+     * Returns the contents of a personal compactor using the data from an ItemStack
      *
-     * @param extraAttributes the Skyblock Data to check
-     * @return A {@link ItemStack[]} or {@code null} if it isn't a Personal Compactor
+     * @param compactor the ItemStack to check
+     * @return an {@link ItemStack[]} or {@code null} if it isn't a personal compactor
      */
-    public static ItemStack[] getPersonalCompactorContents(NBTTagCompound extraAttributes) {
+    public static ItemStack[] getPersonalCompactorContents(ItemStack compactor) {
+        String skyblockID = ItemUtils.getSkyBlockItemID(compactor);
+
+        if (skyblockID == null || !skyblockID.startsWith("PERSONAL_COMPACTOR")) {
+            return null;
+        }
+
+        NBTTagCompound extraAttributes = ItemUtils.getExtraAttributes(compactor);
+
         if (extraAttributes != null) {
-            String itemId = extraAttributes.getString("id");
+            ItemStack[] items = new ItemStack[9];
 
-            if (!itemId.startsWith("PERSONAL_COMPACTOR")) {
-                return null;
-            }
-
-            ItemStack[] items;
-            if (itemId.endsWith("4000"))
-                items = new ItemStack[1];
-            else if (itemId.endsWith("5000"))
-                items = new ItemStack[3];
-            else if (itemId.endsWith("6000"))
-                items = new ItemStack[7];
-            else
-                items = new ItemStack[0];
-
-            for (int i = 0; i < 7; i++) {
-                if (!extraAttributes.hasKey("personal_compact_" + i))
+            for (int i = 0; i < items.length; i++) {
+                if (!extraAttributes.hasKey("personal_compact_" + i)) {
                     continue;
+                }
+                String itemName = extraAttributes.getString("personal_compact_" + i);
 
-                String itemname = extraAttributes.getString("personal_compact_" + i);
-                itemname = itemname.replaceFirst("ENCHANTED_", "");
-                itemname = itemname.replaceFirst("RAW_", "");
-                itemname = itemname.toLowerCase();
-                if (itemname.contains("log")) {
-                    ItemStack is;
-                    switch (itemname) {
+                boolean enchanted = itemName.contains("ENCHANTED");
+
+                itemName = itemName.replaceFirst("ENCHANTED_", "")
+                        .replaceFirst("RAW_", "").toLowerCase();
+
+                ItemStack itemStack = null;
+                if (itemName.contains("log")) {
+                    switch (itemName) {
                         case "oak_log":
-                            is = new ItemStack(Blocks.log);
+                            itemStack = new ItemStack(Blocks.log);
                             break;
                         case "birch_log":
-                            is = new ItemStack(Blocks.log, 1, 2);
+                            itemStack = new ItemStack(Blocks.log, 1, 2);
                             break;
                         case "spruce_log":
-                            is = new ItemStack(Blocks.log, 1, 1);
+                            itemStack = new ItemStack(Blocks.log, 1, 1);
                             break;
                         case "jungle_log":
-                            is = new ItemStack(Blocks.log, 1, 3);
+                            itemStack = new ItemStack(Blocks.log, 1, 3);
                             break;
                         case "acacia_log":
-                            is = new ItemStack(Blocks.log2);
+                            itemStack = new ItemStack(Blocks.log2);
                             break;
                         case "dark_oak_log":
-                            is = new ItemStack(Blocks.log2, 1, 1);
+                            itemStack = new ItemStack(Blocks.log2, 1, 1);
                             break;
-                        default:
-                            continue;
                     }
+                }
 
-                    is.addEnchantment(Enchantment.protection, 1);
-                    items[i] = is;
-                    continue;
+                if (itemStack == null) {
+                    Item item = Item.getByNameOrId(itemName);
+                    if (item == null) {
+                        Block block = Block.getBlockFromName(itemName);
+                        if (block != null) {
+                            item = Item.getItemFromBlock(block);
+                        }
+                    }
+                    if (item != null) {
+                        itemStack = new ItemStack(item);
+                    }
                 }
-                Item it = null;
-                if (Item.itemRegistry.getObject(new ResourceLocation(itemname)) != null) {
-                    it = (Item.itemRegistry.getObject(new ResourceLocation(itemname)));
-                } else if (Block.blockRegistry.getObject(new ResourceLocation(itemname)) != null) {
-                    it = (Item.getItemFromBlock(Block.blockRegistry.getObject(new ResourceLocation(itemname))));
+
+                if (itemStack != null && enchanted) {
+                    itemStack.addEnchantment(Enchantment.protection, 1);
                 }
-                if (it != null) {
-                    ItemStack is = new ItemStack(it);
-                    is.addEnchantment(Enchantment.protection, 1);
-                    items[i] = is;
-                }
+
+                items[i] = itemStack;
             }
 
             return items;
@@ -401,5 +401,110 @@ public class ItemUtils {
         }
 
         return Collections.emptyList();
+    }
+
+    /**
+     * Check if the given {@code ItemStack} is an item shown in a menu as a preview or placeholder
+     * (e.g. items in the recipe book).
+     *
+     * @param itemStack the {@code ItemStack} to check
+     * @return {@code true} if {@code itemStack} is an item shown in a menu as a preview or placeholder, {@code false} otherwise
+     */
+    public static boolean isMenuItem(ItemStack itemStack) {
+        if (itemStack == null) {
+            throw new NullPointerException("Item stack cannot be null!");
+        }
+
+        if (itemStack.hasTagCompound() && itemStack.getTagCompound().hasKey("ExtraAttributes", 10)) {
+            NBTTagCompound extraAttributesTag = itemStack.getSubCompound("ExtraAttributes", false);
+
+            // If this item stack is a menu item, it won't have this key.
+            return !extraAttributesTag.hasKey("uuid");
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Checks if the given {@code ItemStack} is a Skyblock item.
+     *
+     * @param itemStack the {@code ItemStack} to check
+     * @return {@code true} if {@code itemStack} is a Skyblock item, or {@code false} if it's not
+     */
+    public static boolean isSkyblockItem(ItemStack itemStack) {
+        if (itemStack == null) {
+            throw new NullPointerException("Item stack cannot be null!");
+        }
+
+        if (itemStack.hasTagCompound() && itemStack.getTagCompound().hasKey("ExtraAttributes", 10)) {
+            NBTTagCompound extraAttributesTag = itemStack.getSubCompound("ExtraAttributes", false);
+
+            // If the Skyblock item ID tag is present, it's a Skyblock item.
+            return extraAttributesTag.hasKey("id", 8);
+        } else {
+            return false;
+        }
+    }
+
+    public static ItemStack createItemStack(Item item, boolean enchanted) {
+        return createItemStack(item, 0, null, null, enchanted);
+    }
+
+    public static ItemStack createItemStack(Item item, String name, String skyblockID, boolean enchanted) {
+        return createItemStack(item, 0, name, skyblockID, enchanted);
+    }
+
+    public static ItemStack createItemStack(Item item, int meta, String name, String skyblockID, boolean enchanted) {
+        ItemStack stack = new ItemStack(item, 1, meta);
+
+        if (name != null) {
+            stack.setStackDisplayName(name);
+        }
+
+        if (enchanted) {
+            stack.addEnchantment(Enchantment.protection, 0);
+        }
+
+        if (skyblockID != null) {
+            setItemStackSkyblockID(stack, skyblockID);
+        }
+
+        return stack;
+    }
+
+    public static ItemStack createSkullItemStack(String name, String skyblockID, String skullID, String textureURL) {
+        ItemStack stack = new ItemStack(Items.skull, 1, 3);
+
+        NBTTagCompound texture = new NBTTagCompound();
+        texture.setString("Value", TextUtils.encodeSkinTextureURL(textureURL));
+
+        NBTTagList textures = new NBTTagList();
+        textures.appendTag(texture);
+
+        NBTTagCompound properties = new NBTTagCompound();
+        properties.setTag("textures", textures);
+
+        NBTTagCompound skullOwner = new NBTTagCompound();
+        skullOwner.setTag("Properties", properties);
+
+        skullOwner.setString("Id", skullID);
+
+        stack.setTagInfo("SkullOwner", skullOwner);
+
+        if (name != null) {
+            stack.setStackDisplayName(name);
+        }
+
+        if (skyblockID != null) {
+            setItemStackSkyblockID(stack, skyblockID);
+        }
+
+        return stack;
+    }
+
+    public static void setItemStackSkyblockID(ItemStack itemStack, String skyblockID) {
+        NBTTagCompound extraAttributes = new NBTTagCompound();
+        extraAttributes.setString("id", skyblockID);
+        itemStack.setTagInfo("ExtraAttributes", extraAttributes);
     }
 }
