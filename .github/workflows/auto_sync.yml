@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GH_TOKEN_1 }}
       - name: Merge upstream
         run: |
           git config --global user.name skyblockz
