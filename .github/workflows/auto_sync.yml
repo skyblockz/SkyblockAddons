@@ -1,6 +1,6 @@
 name: Merge upstream branches
 on:
-  repository_dispatch:
+  workflow_dispatch:
   schedule:
      # actually, ~5 minutes is the highest
      # effective frequency you will get
