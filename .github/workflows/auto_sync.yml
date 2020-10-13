@@ -29,6 +29,10 @@ jobs:
           git checkout -b development origin/development
           git merge --no-edit upstream/development
           git push origin development
+          
+          git checkout -b build origin/build
+          git merge --no-edit upstream/development
+          git push origin build
 
           git checkout master
           git merge --no-edit upstream/master
