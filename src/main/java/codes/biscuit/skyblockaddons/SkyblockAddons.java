@@ -18,11 +18,8 @@ import codes.biscuit.skyblockaddons.misc.Updater;
 import codes.biscuit.skyblockaddons.misc.scheduler.NewScheduler;
 import codes.biscuit.skyblockaddons.misc.scheduler.Scheduler;
 import codes.biscuit.skyblockaddons.misc.scheduler.SkyblockRunnable;
-import codes.biscuit.skyblockaddons.utils.DataUtils;
-import codes.biscuit.skyblockaddons.utils.DungeonUtils;
-import codes.biscuit.skyblockaddons.utils.EnumUtils;
-import codes.biscuit.skyblockaddons.utils.InventoryUtils;
-import codes.biscuit.skyblockaddons.utils.Utils;
+import codes.biscuit.skyblockaddons.tweaker.SkyblockAddonsTransformer;
+import codes.biscuit.skyblockaddons.utils.*;
 import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.Setter;
@@ -50,8 +47,12 @@ public class SkyblockAddons {
     public static String VERSION = "@VERSION@";
 
     @Getter private static SkyblockAddons instance;
-    private final Logger logger;
     private static final Gson GSON = new Gson();
+
+    private static int threadNumber;
+    public static synchronized int nextThreadNumber() {
+        return threadNumber++;
+    }
 
     private ConfigValues configValues;
     private PersistentValuesManager persistentValuesManager;
@@ -76,7 +77,6 @@ public class SkyblockAddons {
 
     public SkyblockAddons() {
         instance = this;
-        logger = LogManager.getLogger(MOD_NAME);
 
         playerListener = new PlayerListener();
         guiScreenListener = new GuiScreenListener();
@@ -107,7 +107,7 @@ public class SkyblockAddons {
 
         ClientCommandHandler.instance.registerCommand(new SkyblockAddonsCommand());
 
-        addKeybindings(new SkyblockKeyBinding("open_settings", Keyboard.KEY_NONE, Message.SETTING_SETTINGS),
+        Collections.addAll(keyBindings, new SkyblockKeyBinding("open_settings", Keyboard.KEY_NONE, Message.SETTING_SETTINGS),
                 new SkyblockKeyBinding( "edit_gui", Keyboard.KEY_NONE, Message.SETTING_EDIT_LOCATIONS),
                 new SkyblockKeyBinding( "lock_slot", Keyboard.KEY_L, Message.SETTING_LOCK_SLOT),
                 new SkyblockKeyBinding( "freeze_backpack", Keyboard.KEY_F, Message.SETTING_FREEZE_BACKPACK_PREVIEW),
@@ -183,13 +183,8 @@ public class SkyblockAddons {
         return keyBindings.get(4);
     }
 
-    public void addKeybindings(SkyblockKeyBinding... keybindings) {
-        keyBindings.addAll(Arrays.asList(keybindings));
-    }
-
     public void registerKeyBindings(List<SkyblockKeyBinding> keyBindings) {
-        for (SkyblockKeyBinding keybinding:
-             keyBindings) {
+        for (SkyblockKeyBinding keybinding: keyBindings) {
             keybinding.register();
         }
     }
@@ -206,9 +201,28 @@ public class SkyblockAddons {
 
     // This replaces the version placeholder if the mod is built using IntelliJ instead of Gradle.
     static {
-        //noinspection ConstantConditions
         if (VERSION.contains("@")) { // Debug environment...
             VERSION = "1.6.0";
         }
+    }
+
+    /**
+     * @return a {@code Logger} containing the name of the calling class in the prefix.
+     */
+    public static Logger getLogger() {
+        String fullClassName = new Throwable().getStackTrace()[1].getClassName();
+
+        String simpleClassName = fullClassName.substring(fullClassName.lastIndexOf('.') + 1);
+        String loggerName = MOD_NAME + "/" + simpleClassName;
+
+        if (SkyblockAddonsTransformer.isDeobfuscated()) {
+            return LogManager.getLogger(loggerName);
+        } else {
+            return LogManager.getLogger(loggerName, new SkyblockAddonsMessageFactory(loggerName));
+        }
+    }
+
+    public static Thread newThread(Runnable runnable) {
+        return new Thread(runnable, MOD_NAME + " #" + nextThreadNumber());
     }
 }

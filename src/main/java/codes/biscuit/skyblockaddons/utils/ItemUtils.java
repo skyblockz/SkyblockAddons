@@ -472,6 +472,18 @@ public class ItemUtils {
         return stack;
     }
 
+    public static ItemStack createEnchantedBook(String name, String skyblockID, String enchantName, int enchantLevel) {
+        ItemStack stack = createItemStack(Items.enchanted_book, name, skyblockID, false);
+
+        NBTTagCompound enchantments = new NBTTagCompound();
+        enchantments.setString(enchantName, String.valueOf(enchantLevel));
+
+        NBTTagCompound extraAttributes = stack.getTagCompound().getCompoundTag("ExtraAttributes");
+        extraAttributes.setTag("enchantments", enchantments);
+
+        return stack;
+    }
+
     public static ItemStack createSkullItemStack(String name, String skyblockID, String skullID, String textureURL) {
         ItemStack stack = new ItemStack(Items.skull, 1, 3);
 
@@ -506,5 +518,38 @@ public class ItemUtils {
         NBTTagCompound extraAttributes = new NBTTagCompound();
         extraAttributes.setString("id", skyblockID);
         itemStack.setTagInfo("ExtraAttributes", extraAttributes);
+    }
+
+    /**
+     * Returns the number of expertise kills from a given Skyblock ExtraAttributes compound tag
+     *
+     * @param extraAttributes the ExtraAttributes compound tag to check
+     * @return the number of expertise kills or {@code -1} if the ExtraAttributes tag is {@code null} or lacks the expertise kills key
+     */
+    public static int getExpertiseKills(NBTTagCompound extraAttributes) {
+        if (extraAttributes != null && extraAttributes.hasKey("expertise_kills")) {
+            return extraAttributes.getInteger("expertise_kills");
+        }
+        else {
+            return -1;
+        }
+    }
+
+    /**
+     * Given a skull ItemStack, returns the skull owner ID, or null if it doesn't exist.
+     */
+    public static String getSkullOwnerID(ItemStack skull) {
+        if (skull == null || !skull.hasTagCompound()) {
+            return null;
+        }
+
+        NBTTagCompound nbt = skull.getTagCompound();
+        if (nbt.hasKey("SkullOwner", 10)) {
+            nbt = nbt.getCompoundTag("SkullOwner");
+            if (nbt.hasKey("Id", 8)) {
+                return nbt.getString("Id");
+            }
+        }
+        return null;
     }
 }

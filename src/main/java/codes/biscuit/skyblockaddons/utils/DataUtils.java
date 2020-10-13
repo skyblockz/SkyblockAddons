@@ -27,6 +27,8 @@ public class DataUtils {
 
     private static final Gson GSON = new Gson();
 
+    private static Logger logger = SkyblockAddons.getLogger();
+
     //TODO: Migrate all data file loading to this class
 
     /**
@@ -64,7 +66,6 @@ public class DataUtils {
      */
     private static void fetchFromOnline() {
         SkyblockAddons main = SkyblockAddons.getInstance();
-        Logger logger = main.getLogger();
 
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setUserAgent(Utils.USER_AGENT).build()) {
             HttpGet enchantedItemBlacklistGet = new HttpGet("https://raw.githubusercontent.com/BiscuitDevelopment/" +
@@ -88,7 +89,7 @@ public class DataUtils {
                 }
             });
             if (receivedBlacklist != null) {
-                logger.info("Success!");
+                logger.info("Successfully fetched enchanted item blacklist!");
                 EnchantedItemPlacementBlocker.setBlacklist(receivedBlacklist);
             }
 
@@ -107,14 +108,13 @@ public class DataUtils {
                 }
             });
             if (receivedOnlineData != null) {
-                logger.info("Success!");
+                logger.info("Successfully fetched online data!");
                 main.setOnlineData(receivedOnlineData);
                 main.getUpdater().processUpdateCheckResult();
             }
 
         } catch (IOException | JsonSyntaxException e) {
-            logger.error("There was an error fetching data from the server. " +
-                    "The bundled version of the file will be used instead. ");
+            logger.error("There was an error fetching data from the server. The bundled version of the file will be used instead. ");
             logger.catching(e);
         }
     }

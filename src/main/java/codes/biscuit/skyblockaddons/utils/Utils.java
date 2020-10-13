@@ -160,7 +160,7 @@ public class Utils {
     private boolean slayerBossAlive;
 
     private SkyblockAddons main = SkyblockAddons.getInstance();
-    private Logger logger = SkyblockAddons.getInstance().getLogger();
+    private Logger logger = SkyblockAddons.getLogger();
 
     public Utils() {
         addDefaultStats();
@@ -529,9 +529,9 @@ public class Utils {
     }
 
     public void fetchMagmaBossEstimate() {
-        new Thread(() -> {
-            final boolean magmaTimerEnabled = main.getConfigValues().isEnabled(Feature.MAGMA_BOSS_TIMER);
-            if(!magmaTimerEnabled) {
+        SkyblockAddons.newThread(() -> {
+            boolean magmaTimerEnabled = main.getConfigValues().isEnabled(Feature.MAGMA_BOSS_TIMER);
+            if (!magmaTimerEnabled) {
                 logger.info("Getting magma boss spawn estimate from server...");
             }
             try {
@@ -540,7 +540,7 @@ public class Utils {
                 connection.setRequestMethod("GET");
                 connection.setRequestProperty("User-Agent", USER_AGENT);
 
-                if(!magmaTimerEnabled) {
+                if (!magmaTimerEnabled) {
                     logger.info("Got response code " + connection.getResponseCode());
                 }
 
@@ -557,7 +557,7 @@ public class Utils {
                 long currentTime = responseJson.get("queryTime").getAsLong();
                 int magmaSpawnTime = (int)((estimate-currentTime)/1000);
 
-                if(!magmaTimerEnabled) {
+                if (!magmaTimerEnabled) {
                     logger.info("Query time was " + currentTime + ", server time estimate is " +
                             estimate + ". Updating magma boss spawn to be in " + magmaSpawnTime + " seconds.");
                 }
@@ -565,7 +565,7 @@ public class Utils {
                 main.getPlayerListener().setMagmaTime(magmaSpawnTime);
                 main.getPlayerListener().setMagmaAccuracy(EnumUtils.MagmaTimerAccuracy.ABOUT);
             } catch (IOException ex) {
-                if(!magmaTimerEnabled) {
+                if (!magmaTimerEnabled) {
                     logger.warn("Failed to get magma boss spawn estimate from server");
                 }
             }
@@ -573,9 +573,9 @@ public class Utils {
     }
 
     public void sendInventiveTalentPingRequest(EnumUtils.MagmaEvent event) {
-        new Thread(() -> {
-            final boolean magmaTimerEnabled = main.getConfigValues().isEnabled(Feature.MAGMA_BOSS_TIMER);
-            if(!magmaTimerEnabled) {
+        SkyblockAddons.newThread(() -> {
+            boolean magmaTimerEnabled = main.getConfigValues().isEnabled(Feature.MAGMA_BOSS_TIMER);
+            if (!magmaTimerEnabled) {
                 logger.info("Posting event " + event.getInventiveTalentEvent() + " to InventiveTalent API");
             }
 
@@ -603,13 +603,13 @@ public class Utils {
                         out.flush();
                     }
 
-                    if(!magmaTimerEnabled) {
+                    if (!magmaTimerEnabled) {
                         logger.info("Got response code " + connection.getResponseCode());
                     }
                     connection.disconnect();
                 }
             } catch (IOException ex) {
-                if(!magmaTimerEnabled) {
+                if (!magmaTimerEnabled) {
                     logger.warn("Failed to post event to server");
                 }
             }
@@ -741,7 +741,7 @@ public class Utils {
     }
 
     public int getColorWithAlpha(int color, int alpha) {
-        return color + ((alpha << 24) & 0xFF000000);
+        return (alpha << 24) | (color & 0x00FFFFFF);
     }
 
     public void drawModalRectWithCustomSizedTexture(float x, float y, float u, float v, float width, float height, float textureWidth, float textureHeight) {
@@ -827,7 +827,7 @@ public class Utils {
     }
 
     public void posChromaColor(WorldRenderer worldRenderer, double x, double y) {
-        int color = ChromaManager.getChromaColor((float) x, (float) y);
+        int color = ChromaManager.getChromaColor((float) x, (float) y, 255);
         float f3 = (float) (color >> 24 & 255) / 255.0F;
         float f = (float) (color >> 16 & 255) / 255.0F;
         float f1 = (float) (color & 255) / 255.0F;
@@ -887,14 +887,14 @@ public class Utils {
                 fileStream.close();
             }
         } catch (JsonParseException | IllegalStateException | IOException ex) {
-            ex.printStackTrace();
-            System.out.println("SkyblockAddons: There was an error loading the language file.");
+            logger.error("There was an error loading the language file");
+            logger.catching(ex);
         }
     }
 
     public void tryPullingLanguageOnline(Language language) {
         logger.info("Attempting to pull updated language files from online.");
-        new Thread(() -> {
+        SkyblockAddons.newThread(() -> {
             try {
                 URL url = new URL(String.format(main.getOnlineData().getLanguageJSONFormat(), language.getPath()));
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -914,8 +914,8 @@ public class Utils {
                 JsonObject onlineMessages = SkyblockAddons.getGson().fromJson(response.toString(), JsonObject.class);
                 mergeLanguageJsonObject(onlineMessages, main.getConfigValues().getLanguageConfig());
             } catch (JsonParseException | IllegalStateException | IOException ex) {
-                ex.printStackTrace();
-                System.out.println("SkyblockAddons: There was an error loading the language file online");
+                logger.error("There was an error loading the language file online");
+                logger.catching(ex);
             }
         }).start();
     }
@@ -1024,7 +1024,7 @@ public class Utils {
 
         rescaling.add(resourceLocation);
 
-        new Thread(() -> {
+        SkyblockAddons.newThread(() -> {
             try {
                 BufferedImage originalImage = ImageIO.read(SkyblockAddonsGui.class.getClassLoader().getResourceAsStream("assets/"+resourceLocation.getResourceDomain()+"/"+resourceLocation.getResourcePath()));
                 Image scaledImageAbstract = originalImage.getScaledInstance(width, height, Image.SCALE_SMOOTH);

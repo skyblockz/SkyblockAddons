@@ -1,12 +1,12 @@
 package codes.biscuit.skyblockaddons.config;
 
+import codes.biscuit.hypixellocalizationlib.HypixelLanguage;
 import codes.biscuit.skyblockaddons.SkyblockAddons;
 import codes.biscuit.skyblockaddons.features.craftingpatterns.CraftingPattern;
 import codes.biscuit.skyblockaddons.features.dragontracker.DragonTracker;
 import codes.biscuit.skyblockaddons.features.slayertracker.SlayerTracker;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.FileReader;
@@ -16,7 +16,6 @@ import java.io.FileWriter;
 public class PersistentValuesManager {
 
     private final File persistentValuesFile;
-    private final Logger logger = SkyblockAddons.getInstance().getLogger();
 
     private PersistentValues persistentValues = new PersistentValues();
 
@@ -35,6 +34,8 @@ public class PersistentValuesManager {
 
         private int oresMined = 0;
         private int seaCreaturesKilled = 0;
+
+        private HypixelLanguage hypixelLanguage = HypixelLanguage.ENGLISH;
     }
 
     public PersistentValuesManager(File configDir) {
@@ -48,8 +49,8 @@ public class PersistentValuesManager {
                 persistentValues = SkyblockAddons.getGson().fromJson(reader, PersistentValues.class);
 
             } catch (Exception ex) {
-                logger.error("There was an error while trying to load persistent values.");
-                logger.error(ex.getMessage());
+                SkyblockAddons.getLogger().error("There was an error while trying to load persistent values.");
+                SkyblockAddons.getLogger().catching(ex);
                 this.saveValues();
             }
 
@@ -66,8 +67,8 @@ public class PersistentValuesManager {
                 SkyblockAddons.getGson().toJson(this.persistentValues, writer);
             }
         } catch (Exception ex) {
-            logger.error("An error occurred while attempting to save persistent values!");
-            logger.error(ex.getMessage());
+            SkyblockAddons.getLogger().error("An error occurred while attempting to save persistent values!");
+            SkyblockAddons.getLogger().catching(ex);
         }
     }
 
