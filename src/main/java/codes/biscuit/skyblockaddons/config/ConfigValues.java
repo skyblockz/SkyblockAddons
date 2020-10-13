@@ -20,6 +20,7 @@ import org.apache.commons.lang3.mutable.MutableFloat;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.commons.lang3.text.WordUtils;
+import org.apache.logging.log4j.Logger;
 
 import java.awt.*;
 import java.awt.geom.Point2D;
@@ -38,6 +39,7 @@ public class ConfigValues {
     private final static float GUI_SCALE_MAXIMUM = 5;
 
     private SkyblockAddons main = SkyblockAddons.getInstance();
+    private Logger logger = SkyblockAddons.getLogger();
 
     private JsonObject defaultValues = new JsonObject();
     private Map<Feature, FloatPair> defaultCoordinates = new EnumMap<>(Feature.class);
@@ -85,7 +87,8 @@ public class ConfigValues {
             deserializeEnumNumberMapFromID(defaultValues, defaultGuiScales, "guiScales", Feature.class, float.class);
             deserializeFeatureIntCoordsMapFromID(defaultValues, defaultBarSizes, "barSizes");
         } catch (Exception ex) {
-            main.getLogger().error("Failed to load default config!");
+            logger.error("Failed to load default config!");
+            logger.catching(ex);
         }
 
         if (settingsConfigFile.exists()) {
@@ -97,8 +100,8 @@ public class ConfigValues {
                 }
                 settingsConfig = fileElement.getAsJsonObject();
             } catch (JsonParseException | IllegalStateException | IOException ex) {
-                ex.printStackTrace();
-                main.getLogger().error("There was an error loading the config. Resetting all settings to default.");
+                logger.error("There was an error loading the config. Resetting all settings to default.");
+                logger.catching(ex);
                 addDefaultsAndSave();
                 return;
             }
@@ -117,8 +120,8 @@ public class ConfigValues {
                     }
                 }
             } catch (Exception ex) {
-                SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: language");
-                ex.printStackTrace();
+                logger.error("Failed to deserialize path: language");
+                logger.catching(ex);
             }
 
             deserializeEnumValueFromOrdinal(backpackStyle, "backpackStyle");
@@ -136,8 +139,8 @@ public class ConfigValues {
                     }
                 }
             } catch (Exception ex) {
-                SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: coordinates (legacy)");
-                ex.printStackTrace();
+                logger.error("Failed to deserialize path: coordinates (legacy)");
+                logger.catching(ex);
             }
 
             if (settingsConfig.has("coordinates")) {
@@ -154,13 +157,13 @@ public class ConfigValues {
                         if (feature != null) {
                             ColorCode colorCode = ColorCode.values()[element.getValue().getAsInt()];
                             if (colorCode.isColor() && colorCode != ColorCode.RED) { // Red is default, no need to set it.
-                                colors.put(feature, colorCode.getRGB());
+                                colors.put(feature, colorCode.getColor());
                             }
                         }
                     }
                 } catch (Exception ex) {
-                    SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: featureColors");
-                    ex.printStackTrace();
+                    logger.error("Failed to deserialize path: featureColors");
+                    logger.catching(ex);
                 }
             } else {
                 deserializeEnumNumberMapFromID(colors, "colors", Feature.class, int.class);
@@ -262,7 +265,7 @@ public class ConfigValues {
         for (Feature feature : Feature.values()) {
             ColorCode color = feature.getDefaultColor();
             if (color != null) {
-                colors.put(feature, color.getRGB());
+                colors.put(feature, color.getColor());
             }
             if (feature.isDefaultDisabled()) {
                 disabledFeatures.add(feature);
@@ -313,7 +316,7 @@ public class ConfigValues {
             JsonObject colorsObject = new JsonObject();
             for (Feature feature : colors.keySet()) {
                 int featureColor = colors.get(feature);
-                if (featureColor != ColorCode.RED.getRGB()) { // Red is default, no need to save it!
+                if (featureColor != ColorCode.RED.getColor()) { // Red is default, no need to save it!
                     colorsObject.addProperty(String.valueOf(feature.getId()), colors.get(feature));
                 }
             }
@@ -386,8 +389,8 @@ public class ConfigValues {
             bufferedWriter.close();
             writer.close();
         } catch (Exception ex) {
-            ex.printStackTrace();
-            System.out.println("SkyblockAddons: An error occurred while attempting to save the config!");
+            logger.error("An error occurred while attempting to save the config!");
+            logger.catching(ex);
         }
     }
 
@@ -403,8 +406,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -419,8 +422,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -437,8 +440,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -466,8 +469,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -489,8 +492,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -500,8 +503,8 @@ public class ConfigValues {
                 number.setValue(getNumber(settingsConfig.get(path), numberClass));
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -534,8 +537,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -555,8 +558,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -576,8 +579,8 @@ public class ConfigValues {
                 }
             }
         } catch (Exception ex) {
-            SkyblockAddons.getInstance().getLogger().error("Failed to deserialize path: "+ path);
-            ex.printStackTrace();
+            logger.error("Failed to deserialize path: "+ path);
+            logger.catching(ex);
         }
     }
 
@@ -675,27 +678,29 @@ public class ConfigValues {
         return !isDisabled(feature);
     }
 
-    public Color getColor(Feature feature, int alpha) {
-        if (alpha == 255) {
-            return getColor(feature);
-        }
-
-        if (chromaFeatures.contains(feature)) {
-            return new Color(ChromaManager.getChromaColor(0, 0));
-        }
-
-        Color color = getColor(feature);
-
-        return new Color(color.getRed(), color.getGreen(), color.getBlue(), alpha);
+    public Color getColorObject(Feature feature, int alpha) {
+        return new Color(getColor(feature, alpha), true);
     }
 
-    public Color getColor(Feature feature) {
+    public Color getColorObject(Feature feature) {
+        return getColorObject(feature, 255);
+    }
+
+    public int getColor(Feature feature, int alpha) {
+        if (alpha < 4) {
+            alpha = 4; // Minimum apparently
+        }
+
         if (chromaFeatures.contains(feature)) {
-            return new Color(ChromaManager.getChromaColor(0, 0));
+            return ChromaManager.getChromaColor(0, 0, alpha);
         }
 
         ColorCode defaultColor = feature.getDefaultColor();
-        return new Color(colors.getOrDefault(feature, defaultColor != null ? defaultColor.getRGB() : ColorCode.RED.getRGB()));
+        return colors.getOrDefault(feature, defaultColor != null ? defaultColor.getColor() : ColorCode.RED.getColor());
+    }
+
+    public int getColor(Feature feature) {
+        return this.getColor(feature, 255);
     }
 
     public ColorCode getRestrictedColor(Feature feature) {
@@ -703,13 +708,12 @@ public class ConfigValues {
 
         if (featureColor != null) {
             for (ColorCode colorCode : ColorCode.values()) {
-                try {
-                    if (colorCode.getRGB() == featureColor) {
-                        return colorCode;
-                    }
+                if (!colorCode.isColor()) {
+                    continue;
                 }
-                catch (IllegalArgumentException ignored) {
-                    // This chat formatting has no color, let's ignore it.
+
+                if (colorCode.getColor() == featureColor) {
+                    return colorCode;
                 }
             }
         }

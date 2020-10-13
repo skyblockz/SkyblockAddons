@@ -4,25 +4,25 @@ import codes.biscuit.skyblockaddons.asm.*;
 import codes.biscuit.skyblockaddons.tweaker.transformer.ITransformer;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import lombok.Getter;
 import net.minecraft.launchwrapper.IClassTransformer;
+import net.minecraft.launchwrapper.Launch;
+import net.minecraftforge.fml.relauncher.FMLRelaunchLog;
 import org.apache.commons.lang3.mutable.MutableInt;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Level;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.Collection;
 
 public class SkyblockAddonsTransformer implements IClassTransformer {
-    static {
-        PreTransformationChecks.runPreInitChecks();
-    }
 
-    private final Logger logger = LogManager.getLogger("SkyblockAddons Transformer");
+    @Getter private static boolean deobfuscated = (boolean) Launch.blackboard.get("fml.deobfuscatedEnvironment");
+    @Getter private static boolean usingNotchMappings = !deobfuscated;
+
     private final Multimap<String, ITransformer> transformerMap = ArrayListMultimap.create();
 
     public SkyblockAddonsTransformer() {
@@ -70,7 +70,7 @@ public class SkyblockAddonsTransformer implements IClassTransformer {
         Collection<ITransformer> transformers = transformerMap.get(transformedName);
         if (transformers.isEmpty()) return bytes;
 
-        logger.info("Found {} transformers for {}", transformers.size(), transformedName);
+        log(Level.INFO, String.format("Found %s transformers for %s", transformers.size(), transformedName));
 
         ClassReader reader = new ClassReader(bytes);
         ClassNode node = new ClassNode();
@@ -79,7 +79,7 @@ public class SkyblockAddonsTransformer implements IClassTransformer {
         MutableInt classWriterFlags = new MutableInt(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
         transformers.forEach(transformer -> {
-            logger.info("Applying transformer {} on {}...", transformer.getClass().getName(), transformedName);
+            log(Level.INFO, String.format("Applying transformer %s on %s...", transformer.getClass().getName(), transformedName));
             transformer.transform(node, transformedName);
 
             if (transformer instanceof FontRendererTransformer) {
@@ -91,9 +91,9 @@ public class SkyblockAddonsTransformer implements IClassTransformer {
 
         try {
             node.accept(writer);
-        } catch (Throwable t) {
-            logger.error("Exception when transforming " + transformedName + " : " + t.getClass().getSimpleName());
-            logger.catching(t);
+        } catch (Throwable ex) {
+            log(Level.ERROR, "An exception occurred while transforming " + transformedName);
+            ex.printStackTrace();
             outputBytecode(transformedName, writer);
             return bytes;
         }
@@ -115,10 +115,14 @@ public class SkyblockAddonsTransformer implements IClassTransformer {
             FileOutputStream os = new FileOutputStream(bytecodeOutput);
             os.write(writer.toByteArray());
             os.close();
-        } catch (IOException e) {
-            logger.error("An error occurred writing bytecode of transformed class \"" + transformedName + "\" to file.");
-            logger.catching(e);
+        } catch (Exception ex) {
+            log(Level.ERROR, "An error occurred writing bytecode of transformed class \"" + transformedName + "\" to file");
+            ex.printStackTrace();
         }
     }
 
+    public void log(Level level, String message) {
+        String name = "SkyblockAddons/" + this.getClass().getSimpleName();
+        FMLRelaunchLog.log(name, level, (SkyblockAddonsTransformer.isDeobfuscated() ? "" : "[" + name + "] ") + message);
+    }
 }

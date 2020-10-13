@@ -8,10 +8,11 @@ import codes.biscuit.skyblockaddons.events.DungeonPlayerReviveEvent;
 import codes.biscuit.skyblockaddons.events.SkyblockPlayerDeathEvent;
 import codes.biscuit.skyblockaddons.features.BaitManager;
 import codes.biscuit.skyblockaddons.features.EndstoneProtectorManager;
-import codes.biscuit.skyblockaddons.features.backpacks.ContainerPreview;
+import codes.biscuit.skyblockaddons.features.JerryPresent;
 import codes.biscuit.skyblockaddons.features.backpacks.BackpackManager;
-import codes.biscuit.skyblockaddons.features.dragontracker.DragonTracker;
+import codes.biscuit.skyblockaddons.features.backpacks.ContainerPreview;
 import codes.biscuit.skyblockaddons.features.cooldowns.CooldownManager;
+import codes.biscuit.skyblockaddons.features.dragontracker.DragonTracker;
 import codes.biscuit.skyblockaddons.features.enchantedItemBlacklist.EnchantedItemPlacementBlocker;
 import codes.biscuit.skyblockaddons.features.powerorbs.PowerOrbManager;
 import codes.biscuit.skyblockaddons.features.slayertracker.SlayerTracker;
@@ -67,7 +68,6 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
-import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
 
 import java.util.*;
@@ -106,6 +106,8 @@ public class PlayerListener {
     private static final Set<String> BONZO_STAFF_SOUNDS = new HashSet<>(Arrays.asList("fireworks.blast", "fireworks.blast_far",
             "fireworks.twinkle", "fireworks.twinkle_far", "mob.ghast.moan"));
 
+    private static final TreeSet<Integer> EXPERTISE_KILL_TIERS = new TreeSet<>(Arrays.asList(0, 50, 100, 250, 500, 1000, 2500, 5500, 10000, 15000));
+
     private long lastWorldJoin = -1;
     private long lastBoss = -1;
     private int magmaTick = 1;
@@ -139,7 +141,6 @@ public class PlayerListener {
     @Getter private TreeMap<Long, Vec3> explosiveBowExplosions = new TreeMap<>();
 
     private final SkyblockAddons main = SkyblockAddons.getInstance();
-    private final Logger logger = main.getLogger();
     private final ActionBarParser actionBarParser = new ActionBarParser();
 
     /**
@@ -166,6 +167,7 @@ public class PlayerListener {
             }
 
             NPCUtils.getNpcLocations().clear();
+            JerryPresent.getJerryPresents().clear();
         }
     }
 
@@ -195,7 +197,7 @@ public class PlayerListener {
         if (e.type == 2) {
             // Log the message to the game log if action bar message logging is enabled.
             if (DevUtils.isLoggingActionBarMessages()) {
-                logger.info("[ACTION BAR] " + unformattedText);
+                SkyblockAddons.getLogger().info("[ACTION BAR] " + unformattedText);
             }
 
             // Parse using ActionBarParser and display the rest message instead
@@ -204,8 +206,14 @@ public class PlayerListener {
                 e.setCanceled(true);
             }
 
-            if (main.getUtils().isInDungeon() && main.getConfigValues().isEnabled(Feature.DUNGEONS_COLLECTED_ESSENCES_DISPLAY)) {
-                main.getDungeonUtils().parseCollectedEssence(restMessage);
+            if (main.getUtils().isInDungeon()) {
+                if (main.getConfigValues().isEnabled(Feature.DUNGEONS_COLLECTED_ESSENCES_DISPLAY)) {
+                    main.getDungeonUtils().parseCollectedEssence(restMessage);
+                }
+
+                if (main.getConfigValues().isEnabled(Feature.DUNGEONS_SECRETS_DISPLAY)) {
+                    restMessage = main.getDungeonUtils().parseSecrets(restMessage);
+                }
             }
 
             e.message = new ChatComponentText(restMessage);
@@ -272,6 +280,12 @@ public class PlayerListener {
             } else if (main.getConfigValues().isEnabled(Feature.DISABLE_TELEPORT_PAD_MESSAGES) && (formattedText.startsWith("§r§aWarped from ") || formattedText.equals("§r§cThis Teleport Pad does not have a destination set!§r"))) {
                 e.setCanceled(true);
 
+            } else if (main.getConfigValues().isEnabled(Feature.DISABLE_MORT_MESSAGES) && strippedText.startsWith("[NPC] Mort:")) {
+                e.setCanceled(true);
+
+            } else if (main.getConfigValues().isEnabled(Feature.DISABLE_BOSS_MESSAGES) && strippedText.startsWith("[BOSS] ")) {
+                e.setCanceled(true);
+
             } else if ((matcher = SLAYER_COMPLETED_PATTERN.matcher(strippedText)).matches()) { // §r   §r§5§l» §r§7Talk to Maddox to claim your Wolf Slayer XP!§r
                 SlayerTracker.getInstance().completedSlayer(matcher.group("slayerType"));
 
@@ -319,6 +333,10 @@ public class PlayerListener {
                     main.getRenderListener().setArrowsLeft(arrowsLeft);
                     main.getScheduler().schedule(Scheduler.CommandType.RESET_SUBTITLE_FEATURE, main.getConfigValues().getWarningSeconds());
                 }
+            }
+
+            if (main.getInventoryUtils().getInventoryType() == InventoryType.SALVAGING && main.getConfigValues().isEnabled(Feature.SHOW_SALVAGE_ESSENCES_COUNTER)) {
+                main.getDungeonUtils().parseSalvagedEssences(formattedText);
             }
 
             if (main.getUtils().isInDungeon()) {
@@ -373,12 +391,12 @@ public class PlayerListener {
                 matcher = PROFILE_CHAT_PATTERN.matcher(formattedText);
                 if (matcher.matches()) {
                     main.getUtils().setProfileName(matcher.group(1));
-                    APIManager.getInstance().pullInitialData();
+                    APIManager.getInstance().onProfileSwitch();
                 } else {
                     matcher = SWITCH_PROFILE_CHAT_PATTERN.matcher(formattedText);
                     if (matcher.matches()) {
                         main.getUtils().setProfileName(matcher.group(1));
-                        APIManager.getInstance().pullInitialData();
+                        APIManager.getInstance().onProfileSwitch();
                     }
                 }
             }
@@ -467,6 +485,7 @@ public class PlayerListener {
                 if (shouldTriggerFishingIndicator()) { // The logic fits better in its own function
                     main.getUtils().playLoudSound("random.successful_hit", 0.8);
                 }
+
                 if (timerTick == 20) { // Add natural mana every second (increase is based on your max mana).
                     if (main.getRenderListener().isPredictMana()) {
                         changeMana(getAttribute(Attribute.MAX_MANA) / 50);
@@ -518,15 +537,29 @@ public class PlayerListener {
 
         Entity entity = e.entity;
 
-        if (entity instanceof EntityOtherPlayerMP && main.getConfigValues().isEnabled(Feature.HIDE_PLAYERS_NEAR_NPCS) && entity.ticksExisted < 5) {
-            float health = ((EntityOtherPlayerMP) entity).getHealth();
-
-            if (NPCUtils.getNpcLocations().containsKey(entity.getUniqueID())) {
-                if (health != 20.0F) {
-                    NPCUtils.getNpcLocations().remove(entity.getUniqueID());
+        if (entity.ticksExisted < 5) {
+            if (main.getConfigValues().isEnabled(Feature.HIDE_OTHER_PLAYERS_PRESENTS) || main.getConfigValues().isEnabled(Feature.EASIER_PRESENT_OPENING)) {
+                if (!JerryPresent.getJerryPresents().containsKey(entity.getUniqueID())) {
+                    JerryPresent present = JerryPresent.getJerryPresent(entity);
+                    if (present != null) {
+                        JerryPresent.getJerryPresents().put(entity.getUniqueID(), present);
+                        return;
+                    }
                 }
-            } else if (NPCUtils.isNPC(entity)) {
-                NPCUtils.getNpcLocations().put(entity.getUniqueID(), entity.getPositionVector());
+            }
+
+            if (entity instanceof EntityOtherPlayerMP && main.getConfigValues().isEnabled(Feature.HIDE_PLAYERS_NEAR_NPCS)) {
+                float health = ((EntityOtherPlayerMP) entity).getHealth();
+
+                if (NPCUtils.getNpcLocations().containsKey(entity.getUniqueID())) {
+                    if (health != 20.0F) {
+                        NPCUtils.getNpcLocations().remove(entity.getUniqueID());
+                        return;
+                    }
+                } else if (NPCUtils.isNPC(entity)) {
+                    NPCUtils.getNpcLocations().put(entity.getUniqueID(), entity.getPositionVector());
+                    return;
+                }
             }
         }
 
@@ -922,6 +955,22 @@ public class PlayerListener {
                 }
             }
 
+            if (main.getConfigValues().isEnabled(Feature.SHOW_EXPERTISE_KILLS) && hoveredItem.getItem() == Items.fishing_rod && hoveredItem.hasTagCompound()) {
+                NBTTagCompound extraAttributes = ItemUtils.getExtraAttributes(hoveredItem);
+
+                if (extraAttributes != null) {
+                    int expertiseKills = ItemUtils.getExpertiseKills(extraAttributes);
+                    if (expertiseKills != -1) {
+                        ColorCode colorCode = main.getConfigValues().getRestrictedColor(Feature.SHOW_EXPERTISE_KILLS);
+                        if (expertiseKills >= EXPERTISE_KILL_TIERS.last()) {
+                            e.toolTip.add(insertAt++, "§7Expertise Kills: " + colorCode + expertiseKills + " (Maxed)");
+                        } else {
+                            e.toolTip.add(insertAt++, "§7Expertise Kills: " + colorCode + expertiseKills + " / " + EXPERTISE_KILL_TIERS.higher(expertiseKills));
+                        }
+                    }
+                }
+            }
+
             if (main.getConfigValues().isEnabled(Feature.SHOW_ITEM_DUNGEON_FLOOR) && hoveredItem.hasTagCompound()) {
                 NBTTagCompound extraAttributes = ItemUtils.getExtraAttributes(hoveredItem);
                 if (extraAttributes != null) {
@@ -1134,5 +1183,9 @@ public class PlayerListener {
             }
         }
         return false;
+    }
+
+    public ActionBarParser getActionBarParser() {
+        return actionBarParser;
     }
 }
